@@ -29,6 +29,17 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
     }
     mapping (uint256/*tokenId*/ => TokenInfo) internal _tokenInfo;
     
+    function getTokenInfo(uint256 tokenId) external view returns(
+        uint40 subscriptionId,
+        uint40 startTimestamp,
+        uint40 endTimestamp
+    ) {
+        TokenInfo memory info = _tokenInfo[tokenId];
+        subscriptionId = info.subscriptionId;
+        startTimestamp = info.startTimestamp;
+        endTimestamp = info.endTimestamp;
+    }
+
     mapping (address /*user*/ => mapping(uint256 /*subscriptionId*/ => uint256[])) private _userSubscriptionTokens;
 
     address public hub;

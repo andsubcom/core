@@ -12,14 +12,15 @@ contract Hub {
     uint256 internal _nextOrganisationId;
     uint256 internal _nextSubscriptionId;
     SubscriptionTicketNFT public nft;
+    address public treasury;
 
-    event OrganisationCreated(
-        uint256 indexed organisationId,
+    event OrganizationCreated(
+        uint256 indexed organizationId,
         address indexed owner
     );
 
     event SubscriptionCreated(
-        uint256 indexed organisationId,
+        uint256 indexed organizationId,
         uint256 indexed subscriptionId,
         address indexed payableToken,
         uint256 amount,
@@ -40,28 +41,52 @@ contract Hub {
     mapping (uint256 /*organizationId*/ => Organization) internal _organizations;
     mapping (uint256 /*subscriptionId*/ => Subscription) internal _subscriptions;
 
-    constructor(nftOwner) {
+    constructor(address _treasury) {
         nft = new SubscriptionTicketNFT(address(this));
+        require(_treasury != address(0), Errors.ZERO_ADDRESS);
+        treasury = _treasury;
     }
 
     function createOrganization() external {
         uint256 organizationId = _nextOrganisationId++;
+        _organizations[organizationId].owner = msg.sender;
+        emit OrganizationCreated({
+            organizationId: organizationId,
+            owner: msg.sender
+        })
     }
 
     function createSubscription(uint256 organisationId, address payableToken, uint256 amount, uint40 period) external {
-
-    }
-    
-    function buySubscription(uint256 organisationId, uint256 subscriptionId) external {
-
+        require(payableToken != address(0), Errors.ZERO_ADDRESS);
+        require(amount != 0, Errors.INVALID_PARAMS);
+        require(period != 0, Errors.INVALID_PARAMS);
+        
+        uint256 subscriptionId = _nextSubscriptionId++;
+        _subscrptions[subscriptionId] = Subscription({
+            amount: amount,
+            payableToken: payableToken,
+            period: period
+        });
+        _organizations[organizationId].subscriptionIds.push(subscriptionId);
+        emit SubscriptionCreated({
+            organizationId: organizationId,
+            subscriptionId: subscriptionId,
+            payableToken: payableToken,
+            amount: amount,
+            period: period
+        })
     }
     
     function buySubscription(uint256 subscriptionId) external {
-
+        Subscription memory subscription = _subscrptions[subscriptionId];
+        SafeERC20(subscription.payableToken).safeTransferFrom(msg.sender, treasury, subscription.amount);
+        nft.mint(msg.sender, subscriptionId, subscription.startTimestamp, subscription.endTimestamp);
     }
     
     function extendSubscription(uint256 tokenId) external {
-
+        (uint256 subscriptionId,,) = nft.getTokenInfo(tokenId);
+        address owner = nft.ownerOf(tokenId);
+        require(owner == msg.sender, Errors.NOT_OWNER);
     }
     
     function checkUserHasActiveSubscription(address user, uint256 subscriptionId) external view returns(bool) {
@@ -73,7 +98,7 @@ contract Hub {
         return result;
     }
     
-    function getSubscriptionInfo(uint256 subscriptionId) view external return(
+    function getSubscriptionInfo(uint256 subscriptionId) view external returns(
         uint256 amount,
         address payableToken,
         uint40 period
