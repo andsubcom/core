@@ -25,7 +25,6 @@ describe("Subscriptions Hub", function () {
   const everyoneBalance = toBN(1000).mul(BigOne);
   let signers;
   let owner;
-  let treasury;
   let coin;
   let nft;
   let hub;
@@ -35,7 +34,6 @@ describe("Subscriptions Hub", function () {
   beforeEach(async function () {
     signers = await ethers.getSigners();
     owner = signers[0];
-    treasury = signers[signers.length-1];
 
     MockCoin = await ethers.getContractFactory("MockCoin");
     coin = await MockCoin.deploy();
@@ -46,7 +44,7 @@ describe("Subscriptions Hub", function () {
     }  
 
     SubscriptionsHubFactory = await ethers.getContractFactory("SubscriptionsHub");
-    hub = await SubscriptionsHubFactory.deploy(treasury.address);
+    hub = await SubscriptionsHubFactory.deploy();
     await hub.deployed();
     
     const nftAddress = await hub.nft();

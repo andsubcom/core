@@ -16,7 +16,6 @@ contract SubscriptionsHub {
     uint256 internal _nextOrganizationId;
     uint256 internal _nextSubscriptionId;
     SubscriptionTicketNFT public nft;
-    address public treasury;
 
     event OrganizationCreated(
         uint256 indexed organizationId,
@@ -44,6 +43,7 @@ contract SubscriptionsHub {
         uint256 amount;
         address payableToken;
         uint256 period;
+        uint256 organizationId;
     }
 
     mapping (uint256 /*organizationId*/ => Organization) internal _organizations;
@@ -54,10 +54,8 @@ contract SubscriptionsHub {
         emit E("xxx");
     }
 
-    constructor(address _treasury) {
+    constructor() {
         nft = new SubscriptionTicketNFT(address(this));
-        require(_treasury != address(0), Errors.ZERO_ADDRESS);
-        treasury = _treasury;
     }
 
     function createOrganization(string memory name) external {
@@ -83,7 +81,8 @@ contract SubscriptionsHub {
             name: name,
             amount: amount,
             payableToken: payableToken,
-            period: period
+            period: period,
+            organizationId: organizationId
         });
         _organizations[organizationId].subscriptionIds.push(subscriptionId);
         emit SubscriptionCreated({
@@ -98,7 +97,8 @@ contract SubscriptionsHub {
     
     function buySubscription(uint256 subscriptionId) external {
         Subscription memory subscription = _subscriptions[subscriptionId];
-        IERC20(subscription.payableToken).safeTransferFrom(msg.sender, treasury, subscription.amount);
+        address organizationOwner = _organizations[subscription.organizationId].owner;
+        IERC20(subscription.payableToken).safeTransferFrom(msg.sender, organizationOwner, subscription.amount);
         nft.mint(msg.sender, subscriptionId, block.timestamp, block.timestamp+subscription.period);
     }
     
@@ -109,7 +109,8 @@ contract SubscriptionsHub {
     function extendSubscription(uint256 tokenId) external {
         (uint256 subscriptionId, /*startTimestamp*/, uint256 endTimestamp) = nft.getTokenInfo(tokenId);
         Subscription memory subscription = _subscriptions[subscriptionId];
-        IERC20(subscription.payableToken).safeTransferFrom(msg.sender, treasury, subscription.amount);
+        address organizationOwner = _organizations[subscription.organizationId].owner;
+        IERC20(subscription.payableToken).safeTransferFrom(msg.sender, organizationOwner, subscription.amount);
         uint256 newEndTimestamp = block.timestamp + subscription.period;
         if (newEndTimestamp < endTimestamp + subscription.period) {  // take max
             newEndTimestamp = endTimestamp + subscription.period;
@@ -139,9 +140,10 @@ contract SubscriptionsHub {
     function getSubscriptionInfo(uint256 subscriptionId) view external returns(
         uint256 amount,
         address payableToken,
-        uint256 period
+        uint256 period,
+        uint256 organizationId
     ) {
         Subscription memory subscription = _subscriptions[subscriptionId];
-        return (subscription.amount, subscription.payableToken, subscription.period);
+        return (subscription.amount, subscription.payableToken, subscription.period, subscription.organizationId);
     }
 }
