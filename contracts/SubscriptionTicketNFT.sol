@@ -15,7 +15,7 @@ import "./Errors.sol";
 contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
     uint256 internal _nextTokenId;
     
-    emit SetTokenInfo(
+    event SetTokenInfo(
         uint256 indexed tokenId,
         uint40 indexed subscriptionId,
         uint40 startTimestamp,
@@ -50,7 +50,7 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
     }
 
     modifier onlyHub() {
-        require(msg.sender == hub, Erros.NOT_HUB);
+        require(msg.sender == hub, Errors.NOT_HUB);
         _;
     }
 
@@ -103,9 +103,9 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
         return tokenId;
     }
 
-    function extend(uint256 tokenId, uint40 period) onlyHub external {
+    function extend(uint256 tokenId, uint40 nexEndTimestamp) onlyHub external {
         TokenInfo storage tokenInfo = _tokenInfo[tokenId];
-        tokenInfo.endTimestamp += period;
+        tokenInfo.endTimestamp = nexEndTimestamp;
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal override(ERC721, ERC721Enumerable) {
