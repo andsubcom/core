@@ -103,6 +103,11 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
         return tokenId;
     }
 
+    function extend(uint256 tokenId, uint40 period) onlyHub external {
+        TokenInfo storage tokenInfo = _tokenInfo[tokenId];
+        tokenInfo.endTimestamp += period;
+    }
+
     function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal override(ERC721, ERC721Enumerable) {
         ERC721Enumerable._beforeTokenTransfer(from, to, tokenId);
         uint40 subscriptionId = _tokenInfo[tokenId].subscriptionId;

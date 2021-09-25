@@ -80,13 +80,17 @@ contract Hub {
     function buySubscription(uint256 subscriptionId) external {
         Subscription memory subscription = _subscrptions[subscriptionId];
         SafeERC20(subscription.payableToken).safeTransferFrom(msg.sender, treasury, subscription.amount);
-        nft.mint(msg.sender, subscriptionId, subscription.startTimestamp, subscription.endTimestamp);
+        nft.mint(msg.sender, subscriptionId, block.timestamp, block.timestamp+subscription.period);
     }
     
     function extendSubscription(uint256 tokenId) external {
         (uint256 subscriptionId,,) = nft.getTokenInfo(tokenId);
         address owner = nft.ownerOf(tokenId);
         require(owner == msg.sender, Errors.NOT_OWNER);
+        
+        Subscription memory subscription = _subscrptions[subscriptionId];
+        SafeERC20(subscription.payableToken).safeTransferFrom(msg.sender, treasury, subscription.amount);
+        nft.extend(msg.sender, subscriptionId, block.timestamp, block.timestamp+subscription.period);
     }
     
     function checkUserHasActiveSubscription(address user, uint256 subscriptionId) external view returns(bool) {
