@@ -72,6 +72,8 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
         return _userSubscriptionTokens[user][subscriptionId];
     }
 
+    function z()external view returns(uint256){return 42;}
+
     function checkUserHasActiveSubscription(address user, uint256 subscriptionId) external view returns(bool) {
         uint256[] storage tokens = _userSubscriptionTokens[user][subscriptionId];
         uint length = tokens.length;  // gas optimisation

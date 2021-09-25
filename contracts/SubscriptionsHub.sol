@@ -20,7 +20,8 @@ contract SubscriptionsHub {
 
     event OrganizationCreated(
         uint256 indexed organizationId,
-        address indexed owner
+        address indexed owner,
+        string name
     );
 
     event SubscriptionCreated(
@@ -28,7 +29,8 @@ contract SubscriptionsHub {
         uint256 indexed subscriptionId,
         address indexed payableToken,
         uint256 amount,
-        uint256 period
+        uint256 period,
+        string name
     );
 
     struct Organization {
@@ -47,6 +49,11 @@ contract SubscriptionsHub {
     mapping (uint256 /*organizationId*/ => Organization) internal _organizations;
     mapping (uint256 /*subscriptionId*/ => Subscription) internal _subscriptions;
 
+    event E(string name);
+    function em()external{
+        emit E("xxx");
+    }
+
     constructor(address _treasury) {
         nft = new SubscriptionTicketNFT(address(this));
         require(_treasury != address(0), Errors.ZERO_ADDRESS);
@@ -59,7 +66,8 @@ contract SubscriptionsHub {
         _organizations[organizationId].name = name;
         emit OrganizationCreated({
             organizationId: organizationId,
-            owner: msg.sender
+            owner: msg.sender,
+            name: name
         });
     }
 
@@ -68,6 +76,8 @@ contract SubscriptionsHub {
         require(amount != 0, Errors.INVALID_PARAMS);
         require(period != 0, Errors.INVALID_PARAMS);
         
+        require(msg.sender == _organizations[organizationId].owner, Errors.NOT_OWNER);
+
         uint256 subscriptionId = _nextSubscriptionId++;
         _subscriptions[subscriptionId] = Subscription({
             name: name,
@@ -81,7 +91,8 @@ contract SubscriptionsHub {
             subscriptionId: subscriptionId,
             payableToken: payableToken,
             amount: amount,
-            period: period
+            period: period,
+            name: name
         });
     }
     
