@@ -31,7 +31,7 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
     
     mapping (address /*user*/ => mapping(uint256 /*subscriptionId*/ => uint256[])) private _userSubscriptionTokens;
 
-    Hub public hub;
+    address public hub;
 
     constructor(address _hub) ERC721("SubscriptionTicketNFT", "SubNFT") {
         require(_hub != address(0), Errors.ZERO_ADDRESS);
