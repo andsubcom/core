@@ -54,10 +54,10 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
         _;
     }
 
-    function getUserTokenIds(address user) external view returns(uint256[]) {
-        uint256 balance = _balances[user];
-        uint256[] result = new uint256[balance];
-        for (uint256 i=0; i<balance; i++){
+    function getUserTokenIds(address user) external view returns(uint256[] memory) {
+        uint256 userBalance = balanceOf(user);
+        uint256[] memory result = new uint256[](userBalance);
+        for (uint256 i=0; i<userBalance; i++){
             uint256 tokenId = tokenOfOwnerByIndex(user, i);
             result[i] = tokenId;
         }
@@ -67,7 +67,7 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
     /**
      * @dev get all tokens for specific user and subscription (including past, current and future)
      */
-    function getUserSubscriptionTokenIds(address user, uint256 subscriptionId) external view returns(uint256[]) {
+    function getUserSubscriptionTokenIds(address user, uint256 subscriptionId) external view returns(uint256[] memory) {
         return _userSubscriptionTokens[user][subscriptionId];
     }
 
@@ -85,9 +85,9 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
 
     function mint(address user, uint40 subscriptionId, uint40 startTimestamp, uint40 endTimestamp) onlyHub external returns (uint256) {
         require(user != address(0), Errors.ZERO_ADDRESS);
-        uint256 tokenId = nextTokenId++;
-        _mint(to, tokenId);
-        TokenInfo tokenInfo = TokenInfo({
+        uint256 tokenId = _nextTokenId++;
+        _mint(user, tokenId);
+        TokenInfo memory tokenInfo = TokenInfo({
             subscriptionId: subscriptionId,
             startTimestamp: startTimestamp,
             endTimestamp: endTimestamp

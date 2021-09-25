@@ -6,10 +6,13 @@ import {IERC20} from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 
 import {SubscriptionTicketNFT} from './SubscriptionTicketNFT.sol';
+import "./Errors.sol";
 
 
 contract Hub {
-    uint256 internal _nextOrganisationId;
+    using SafeERC20 for IERC20;
+
+    uint256 internal _nextOrganizationId;
     uint256 internal _nextSubscriptionId;
     SubscriptionTicketNFT public nft;
     address public treasury;
@@ -49,8 +52,8 @@ contract Hub {
         treasury = _treasury;
     }
 
-    function createOrganization(string name) external {
-        uint256 organizationId = _nextOrganisationId++;
+    function createOrganization(string memory name) external {
+        uint256 organizationId = _nextOrganizationId++;
         _organizations[organizationId].owner = msg.sender;
         _organizations[organizationId].name = name;
         emit OrganizationCreated({
@@ -59,13 +62,13 @@ contract Hub {
         });
     }
 
-    function createSubscription(uint256 organisationId, string name, address payableToken, uint256 amount, uint40 period) external {
+    function createSubscription(uint256 organizationId, string memory name, address payableToken, uint256 amount, uint40 period) external {
         require(payableToken != address(0), Errors.ZERO_ADDRESS);
         require(amount != 0, Errors.INVALID_PARAMS);
         require(period != 0, Errors.INVALID_PARAMS);
         
         uint256 subscriptionId = _nextSubscriptionId++;
-        _subscrptions[subscriptionId] = Subscription({
+        _subscriptions[subscriptionId] = Subscription({
             name: name,
             amount: amount,
             payableToken: payableToken,
@@ -82,8 +85,8 @@ contract Hub {
     }
     
     function buySubscription(uint256 subscriptionId) external {
-        Subscription memory subscription = _subscrptions[subscriptionId];
-        SafeERC20(subscription.payableToken).safeTransferFrom(msg.sender, treasury, subscription.amount);
+        Subscription memory subscription = _subscriptions[subscriptionId];
+        IERC20(subscription.payableToken).safeTransferFrom(msg.sender, treasury, subscription.amount);
         nft.mint(msg.sender, subscriptionId, block.timestamp, block.timestamp+subscription.period);
     }
     
@@ -92,7 +95,7 @@ contract Hub {
         address owner = nft.ownerOf(tokenId);
         require(owner == msg.sender, Errors.NOT_OWNER);
         
-        Subscription memory subscription = _subscrptions[subscriptionId];
+        Subscription memory subscription = _subscriptions[subscriptionId];
         SafeERC20(subscription.payableToken).safeTransferFrom(msg.sender, treasury, subscription.amount);
         uint40 newEndTimestamp = block.timestamp + subscription.period;
         if (newEndTimestamp < endTimestamp + subscription.period) {  // take max
@@ -105,7 +108,7 @@ contract Hub {
         return nft.checkUserHasActiveSubscription(user, subscriptionId);
     }
     
-    function getAllsubscriptionsForOrganisation(uint256 organizationId) external view returns(uint256[]) {
+    function getAllsubscriptionsForOrganization(uint256 organizationId) external view returns(uint256[] memory) {
         // uint256[] result =  new uint256[];
         // return result;
         return _organizations[organizationId].subscriptionIds;
@@ -113,7 +116,7 @@ contract Hub {
     
     function getOrganizationInfo(uint256 organizationId) view external returns(
         address owner,
-        string name
+        string memory name
     ) {
         Organization memory organization = _organizations[organizationId];
         owner = organization.owner;
