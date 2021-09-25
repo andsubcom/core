@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.6;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -17,22 +18,22 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
     
     event SetTokenInfo(
         uint256 indexed tokenId,
-        uint40 indexed subscriptionId,
-        uint40 startTimestamp,
-        uint40 endTimestamp
+        uint256 indexed subscriptionId,
+        uint256 startTimestamp,
+        uint256 endTimestamp
     );
 
     struct TokenInfo {
-        uint40 subscriptionId;
-        uint40 startTimestamp;
-        uint40 endTimestamp;
+        uint256 subscriptionId;
+        uint256 startTimestamp;
+        uint256 endTimestamp;
     }
     mapping (uint256/*tokenId*/ => TokenInfo) internal _tokenInfo;
     
     function getTokenInfo(uint256 tokenId) external view returns(
-        uint40 subscriptionId,
-        uint40 startTimestamp,
-        uint40 endTimestamp
+        uint256 subscriptionId,
+        uint256 startTimestamp,
+        uint256 endTimestamp
     ) {
         TokenInfo memory info = _tokenInfo[tokenId];
         subscriptionId = info.subscriptionId;
@@ -83,7 +84,7 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
         return false;
     }
 
-    function mint(address user, uint40 subscriptionId, uint40 startTimestamp, uint40 endTimestamp) onlyHub external returns (uint256) {
+    function mint(address user, uint256 subscriptionId, uint256 startTimestamp, uint256 endTimestamp) onlyHub external returns (uint256) {
         require(user != address(0), Errors.ZERO_ADDRESS);
         uint256 tokenId = _nextTokenId++;
         _mint(user, tokenId);
@@ -93,7 +94,7 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
             endTimestamp: endTimestamp
         });
         _tokenInfo[tokenId] = tokenInfo;
-        _userSubscriptionTokens[user][subscriptionId] = tokenId;
+        _userSubscriptionTokens[user][subscriptionId].push(tokenId);
         emit SetTokenInfo({
             tokenId: tokenId,
             subscriptionId: subscriptionId,
@@ -103,14 +104,14 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
         return tokenId;
     }
 
-    function extend(uint256 tokenId, uint40 nexEndTimestamp) onlyHub external {
+    function extend(uint256 tokenId, uint256 newEndTimestamp) onlyHub external {
         TokenInfo storage tokenInfo = _tokenInfo[tokenId];
-        tokenInfo.endTimestamp = nexEndTimestamp;
+        tokenInfo.endTimestamp = uint256(newEndTimestamp);
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal override(ERC721, ERC721Enumerable) {
         ERC721Enumerable._beforeTokenTransfer(from, to, tokenId);
-        uint40 subscriptionId = _tokenInfo[tokenId].subscriptionId;
+        uint256 subscriptionId = _tokenInfo[tokenId].subscriptionId;
         uint256[] storage fromTokens = _userSubscriptionTokens[from][subscriptionId];
         uint256 length = fromTokens.length;
         for(uint256 i; i<length; i++) {
@@ -120,9 +121,13 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
                     // set last to current to free up the last element
                     fromTokens[i] = fromTokens[length-1];
                 }
-                fromTokens.length--;
+                fromTokens.pop();
             }
         }  // if not found will fail in transfer itself
-        _userSubscriptionTokens[to][subscriptionId] = tokenId;
+        _userSubscriptionTokens[to][subscriptionId].push(tokenId);
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Enumerable) returns (bool) {
+        return super.supportsInterface(interfaceId);
     }
 }

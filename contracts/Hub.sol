@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.6;
 
 import {EnumerableSet} from '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
@@ -27,7 +28,7 @@ contract Hub {
         uint256 indexed subscriptionId,
         address indexed payableToken,
         uint256 amount,
-        uint40 period
+        uint256 period
     );
 
     struct Organization {
@@ -40,7 +41,7 @@ contract Hub {
         string name;
         uint256 amount;
         address payableToken;
-        uint40 period;
+        uint256 period;
     }
 
     mapping (uint256 /*organizationId*/ => Organization) internal _organizations;
@@ -62,7 +63,7 @@ contract Hub {
         });
     }
 
-    function createSubscription(uint256 organizationId, string memory name, address payableToken, uint256 amount, uint40 period) external {
+    function createSubscription(uint256 organizationId, string memory name, address payableToken, uint256 amount, uint256 period) external {
         require(payableToken != address(0), Errors.ZERO_ADDRESS);
         require(amount != 0, Errors.INVALID_PARAMS);
         require(period != 0, Errors.INVALID_PARAMS);
@@ -90,18 +91,19 @@ contract Hub {
         nft.mint(msg.sender, subscriptionId, block.timestamp, block.timestamp+subscription.period);
     }
     
+    /**
+     * @dev extend any existant subscription
+     * @dev anyone can extend any subscription even if he is not the holder.
+     */
     function extendSubscription(uint256 tokenId) external {
-        (uint256 subscriptionId, uint40 startTimestamp, uint40 endTimestamp) = nft.getTokenInfo(tokenId);
-        address owner = nft.ownerOf(tokenId);
-        require(owner == msg.sender, Errors.NOT_OWNER);
-        
+        (uint256 subscriptionId, /*startTimestamp*/, uint256 endTimestamp) = nft.getTokenInfo(tokenId);
         Subscription memory subscription = _subscriptions[subscriptionId];
-        SafeERC20(subscription.payableToken).safeTransferFrom(msg.sender, treasury, subscription.amount);
-        uint40 newEndTimestamp = block.timestamp + subscription.period;
+        IERC20(subscription.payableToken).safeTransferFrom(msg.sender, treasury, subscription.amount);
+        uint256 newEndTimestamp = block.timestamp + subscription.period;
         if (newEndTimestamp < endTimestamp + subscription.period) {  // take max
             newEndTimestamp = endTimestamp + subscription.period;
         }
-        nft.extend(msg.sender, subscriptionId, newEndTimestamp);   
+        nft.extend(tokenId, newEndTimestamp);   
     }
     
     function checkUserHasActiveSubscription(address user, uint256 subscriptionId) external view returns(bool) {
@@ -126,9 +128,9 @@ contract Hub {
     function getSubscriptionInfo(uint256 subscriptionId) view external returns(
         uint256 amount,
         address payableToken,
-        uint40 period
+        uint256 period
     ) {
         Subscription memory subscription = _subscriptions[subscriptionId];
-        return (subscriptionId.amount, subscriptionId.payableToken, subscriptionId.period);
+        return (subscription.amount, subscription.payableToken, subscription.period);
     }
 }
