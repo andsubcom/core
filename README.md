@@ -1,15 +1,21 @@
-# Basic Sample Hardhat Project
+# Core
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, a sample script that deploys that contract, and an example of a task implementation, which simply lists the available accounts.
+This reporisotry contains core smart contracts.
 
-Try running some of the following tasks:
+- A user can create and manage organizations.  
+- An organization can have multiple subscriptions.  
+- A client can view organization subscriptions, get subscription cost, and subscribe to it.  
 
-```shell
-npx hardhat accounts
-npx hardhat compile
-npx hardhat clean
-npx hardhat test
-npx hardhat node
-node scripts/sample-script.js
-npx hardhat help
-```
+
+### Set up
+
+1. Create `.env` and set Alchemy API key to ALCHEMY_API_KEY  
+2. Set Ethereum address private key to PRIVATE_KEY in `.env`  
+3. Install deps `npm install`  
+
+### Run
+
+* Run new node on localhost: `npx hardhat node`  
+* Run mainnet fork node on localhost: `npx hardhat node --fork https://eth-mainnet.alchemyapi.io/v2/[API_KEY]`  
+* Run tests: `npx hardhat --network localhost tests/subscriptions.ts`  
+* Deploy: `npx hardhat --network ropsten run scripts/deploy.ts`  
