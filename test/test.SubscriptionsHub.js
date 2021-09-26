@@ -137,5 +137,23 @@ describe("Subscriptions Hub", function () {
 
     expect(await hub.checkUserHasActiveSubscription(user1.address, subscriptionId)).to.be.equal(false);
     expect(await hub.checkUserHasActiveSubscription(user2.address, subscriptionId)).to.be.equal(true);
+
+    await coin.connect(user2).approve(hub.address, price);
+
+    let [, startTimestamp, endTimestamp, ] = await nft.getTokenInfo(tokenId);
+    let endTimestampNum = endTimestamp.toNumber();
+    await expect(hub.extendSubscription(tokenId)).to.be.revertedWith("AUTO_BY_ADMIN_EXTEND_TOO_EARLY");
+    
+    await ethers.provider.send('evm_setNextBlockTimestamp', [endTimestampNum - 24*3600]); 
+    ethers.provider.send('evm_mine');
+
+    await hub.extendSubscription(tokenId);  // extend is made by the admin
+    await expect(hub.extendSubscription(tokenId)).to.be.revertedWith("AUTO_BY_ADMIN_EXTEND_TOO_EARLY");  // cannot be done twice by the admin
+
+    await ethers.provider.send('evm_setNextBlockTimestamp', [endTimestampNum + 24*3600]); 
+    ethers.provider.send('evm_mine');
+
+    // subscription is still active
+    expect(await hub.checkUserHasActiveSubscription(user2.address, subscriptionId)).to.be.equal(true);
   });
 });

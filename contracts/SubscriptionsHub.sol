@@ -115,7 +115,7 @@ contract SubscriptionsHub is Ownable {
         if (holder != msg.sender) {
             require(msg.sender == owner(), Errors.NOT_OWNER);
             require(allowAutoExtend, Errors.OWNER_DISALLOW_AUTO_EXTEND);
-            require(block.timestamp > endTimestamp - 1 days, Errors.AUTO_EXTEND_TOO_EARLY);
+            require(block.timestamp >= endTimestamp - 1 days, Errors.AUTO_BY_ADMIN_EXTEND_TOO_EARLY);
         }
         
         Subscription memory subscription = _subscriptions[subscriptionId];
