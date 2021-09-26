@@ -127,7 +127,15 @@ describe("Subscriptions Hub", function () {
 
     await nft.connect(user1).transferFrom(user1.address, user2.address, tokenId);
 
-    // expect(await hub.checkUserHasActiveSubscription(user1.address, subscriptionId)).to.be.equal(false);
-    // expect(await hub.checkUserHasActiveSubscription(user2.address, subscriptionId)).to.be.equal(true);
+    expect((await nft.getUserTokenIds(user1.address)).length).to.be.equal(0);
+    expect((await nft.getUserTokenIds(user2.address)).length).to.be.equal(1);
+    expect((await nft.getUserTokenIds(user2.address))[0]).to.be.equal(tokenId);
+
+    expect((await nft.getUserSubscriptionTokenIds(user1.address, subscriptionId)).length).to.be.equal(0);
+    expect((await nft.getUserSubscriptionTokenIds(user2.address, subscriptionId)).length).to.be.equal(1);
+    expect((await nft.getUserSubscriptionTokenIds(user2.address, subscriptionId))[0]).to.be.equal(tokenId);
+
+    expect(await hub.checkUserHasActiveSubscription(user1.address, subscriptionId)).to.be.equal(false);
+    expect(await hub.checkUserHasActiveSubscription(user2.address, subscriptionId)).to.be.equal(true);
   });
 });

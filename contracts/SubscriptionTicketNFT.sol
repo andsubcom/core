@@ -4,6 +4,7 @@ pragma solidity ^0.8.6;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./Errors.sol";
@@ -14,6 +15,7 @@ import "./Errors.sol";
  * Non-Fungible Token Standard, including required information about subscription ticket.
  */
 contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
+    using EnumerableSet for EnumerableSet.UintSet;
     uint256 internal _nextTokenId;
     
     event SetTokenInfo(
@@ -45,7 +47,7 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
         allowAutoExtend = info.allowAutoExtend;
     }
 
-    mapping (address /*user*/ => mapping(uint256 /*subscriptionId*/ => uint256[])) private _userSubscriptionTokens;
+    mapping (address /*user*/ => mapping(uint256 /*subscriptionId*/ => EnumerableSet.UintSet /*tokenIds set*/)) private _userSubscriptionTokens;
 
     address public hub;
 
@@ -73,14 +75,21 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
      * @dev get all tokens for specific user and subscription (including past, current and future)
      */
     function getUserSubscriptionTokenIds(address user, uint256 subscriptionId) external view returns(uint256[] memory) {
-        return _userSubscriptionTokens[user][subscriptionId];
+        EnumerableSet.UintSet storage set = _userSubscriptionTokens[user][subscriptionId];
+        uint256 length = set.length();
+        uint256[] memory result = new uint256[](length);
+        for (uint256 i=0; i<length; i++){
+            result[i] = set.at(i);
+        }
+        return result;
     }
 
     function checkUserHasActiveSubscription(address user, uint256 subscriptionId) external view returns(bool) {
-        uint256[] storage tokens = _userSubscriptionTokens[user][subscriptionId];
-        uint length = tokens.length;  // gas optimisation
-        for (uint256 i; i<length; i++) {
-            TokenInfo storage tokenInfo = _tokenInfo[tokens[i]];
+        EnumerableSet.UintSet storage set = _userSubscriptionTokens[user][subscriptionId];
+        uint256 length = set.length();  // gas optimisation
+        for (uint256 i=0; i<length; i++){
+            uint256 tokenId = set.at(i);
+            TokenInfo storage tokenInfo = _tokenInfo[tokenId];
             if ((tokenInfo.startTimestamp <= block.timestamp) && (block.timestamp <= tokenInfo.endTimestamp)){
                 return true;
             }
@@ -99,7 +108,7 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
             allowAutoExtend: allowAutoExtend
         });
         _tokenInfo[tokenId] = tokenInfo;
-        _userSubscriptionTokens[user][subscriptionId].push(tokenId);
+        _userSubscriptionTokens[user][subscriptionId].add(tokenId);
         emit SetTokenInfo({
             tokenId: tokenId,
             subscriptionId: subscriptionId,
@@ -138,20 +147,8 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
     function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal override(ERC721, ERC721Enumerable) {
         ERC721Enumerable._beforeTokenTransfer(from, to, tokenId);
         uint256 subscriptionId = _tokenInfo[tokenId].subscriptionId;
-        uint256[] storage fromTokens = _userSubscriptionTokens[from][subscriptionId];
-        uint256 length = fromTokens.length;
-        for(uint256 i=0; i<length; i++) {
-            if (fromTokens[i] == tokenId) {
-                // remove
-                if(i != length-1) {
-                    // set last to current to free up the last element
-                    fromTokens[i] = fromTokens[length-1];
-                }
-                fromTokens.pop();
-                break;
-            }
-        }  // if not found will fail in transfer itself
-        _userSubscriptionTokens[to][subscriptionId].push(tokenId);
+        _userSubscriptionTokens[from][subscriptionId].remove(tokenId);
+        _userSubscriptionTokens[to][subscriptionId].add(tokenId);
     }
 
     function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Enumerable) returns (bool) {

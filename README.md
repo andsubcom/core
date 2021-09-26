@@ -28,7 +28,22 @@ await coin.connect(user1).approve(hub.address, price);
 await hub.connect(user1).buySubscription(subscriptionId, allowAutoExtend);
 ```
 
+### Check subscription
 
+```js
+expect(await nft.checkUserHasActiveSubscription(user1.address, subscriptionId)).to.be.equal(true);
+
+expect(await hub.checkUserHasActiveSubscription(user1.address, subscriptionId)).to.be.equal(true);
+```
+
+### Transfer subscription as an ERC721 NFT token
+
+```js
+await nft.connect(user1).transferFrom(user1.address, user2.address, tokenId);
+
+expect(await hub.checkUserHasActiveSubscription(user1.address, subscriptionId)).to.be.equal(false);
+expect(await hub.checkUserHasActiveSubscription(user2.address, subscriptionId)).to.be.equal(true);
+```
 
 ## Description
 
