@@ -5,12 +5,13 @@ import {EnumerableSet} from '@openzeppelin/contracts/utils/structs/EnumerableSet
 import {IERC721} from '@openzeppelin/contracts/token/ERC721/IERC721.sol';
 import {IERC20} from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 import {SubscriptionTicketNFT} from './SubscriptionTicketNFT.sol';
 import "./Errors.sol";
 
 
-contract SubscriptionsHub {
+contract SubscriptionsHub is Ownable {
     using SafeERC20 for IERC20;
 
     uint256 internal _nextOrganizationId;
@@ -50,7 +51,7 @@ contract SubscriptionsHub {
     mapping (uint256 /*subscriptionId*/ => Subscription) internal _subscriptions;
     mapping (address /*user*/ => uint256[] /*organizationIds*/) internal _ownerOrganizationIds;
 
-    constructor() {
+    constructor() Ownable() {
         nft = new SubscriptionTicketNFT(address(this));
     }
 
@@ -102,22 +103,24 @@ contract SubscriptionsHub {
         IERC20(subscription.payableToken).safeTransferFrom(msg.sender, organizationOwner, subscription.amount);
         nft.mint(msg.sender, subscriptionId, block.timestamp, block.timestamp+subscription.period, allowAutoExtend);
     }
-    
+
     /**
-     * @dev extend any existant subscription
-     * @dev anyone can extend any subscription even if he is not the holder.
+     * @dev Extend any existant subscription.
+     * @dev May be called by the owner or by the token holder.
+     * @dev Owner can extend subscription not early than 1 days before the endTimestamp.
      */
     function extendSubscription(uint256 tokenId) external {
         (uint256 subscriptionId, /*startTimestamp*/, uint256 endTimestamp, bool allowAutoExtend) = nft.getTokenInfo(tokenId);
-        address owner = nft.ownerOf(tokenId);
-        if (owner != msg.sender) {
+        address holder = nft.ownerOf(tokenId);
+        if (holder != msg.sender) {
+            require(msg.sender == owner(), Errors.NOT_OWNER);
             require(allowAutoExtend, Errors.OWNER_DISALLOW_AUTO_EXTEND);
             require(block.timestamp > endTimestamp - 1 days, Errors.AUTO_EXTEND_TOO_EARLY);
         }
         
         Subscription memory subscription = _subscriptions[subscriptionId];
         address organizationOwner = _organizations[subscription.organizationId].owner;
-        IERC20(subscription.payableToken).safeTransferFrom(msg.sender, organizationOwner, subscription.amount);
+        IERC20(subscription.payableToken).safeTransferFrom(holder, organizationOwner, subscription.amount);
         uint256 newEndTimestamp = block.timestamp + subscription.period;
         if (newEndTimestamp < endTimestamp + subscription.period) {  // take max
             newEndTimestamp = endTimestamp + subscription.period;

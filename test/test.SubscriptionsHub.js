@@ -87,12 +87,13 @@ describe("Subscriptions Hub", function () {
       );
   });
 
-  it("Buy subscription", async function () {    
+  it("Buy subscription and transfer", async function () {    
     const organizationName = "some-organization";
     const subscriptionName = "some-organization";
     const organizationId = toBN(0);
     const subscriptionId = toBN(0);
-    const user = signers[1];
+    const user1 = signers[1];
+    const user2 = signers[2];
     await expect(hub.createOrganization(organizationName))
       .to.emit(hub, "OrganizationCreated")
       .withArgs(
@@ -102,7 +103,7 @@ describe("Subscriptions Hub", function () {
       );
     const price = toBN(1).mul(BigOne);
     const period = 30*24*3600;
-    await expect(hub.createSubscription(toBN(0), subscriptionName, coin.address, price, period))
+    await expect(hub.createSubscription(organizationId, subscriptionName, coin.address, price, period))
       .to.emit(hub, "SubscriptionCreated")
       .withArgs(
         organizationId,
@@ -113,15 +114,20 @@ describe("Subscriptions Hub", function () {
         subscriptionName
       );
     
-    expect(await nft.checkUserHasActiveSubscription(user.address, subscriptionId)).to.be.equal(false);
-    expect(await hub.checkUserHasActiveSubscription(user.address, subscriptionId)).to.be.equal(false);
+    expect(await nft.checkUserHasActiveSubscription(user1.address, subscriptionId)).to.be.equal(false);
+    expect(await hub.checkUserHasActiveSubscription(user1.address, subscriptionId)).to.be.equal(false);
 
     const tokenId = toBN(0);
     const allowAutoExtend = true;
-    await coin.connect(user).approve(hub.address, price);
-    await hub.connect(user).buySubscription(subscriptionId, allowAutoExtend);
+    await coin.connect(user1).approve(hub.address, price);
+    await hub.connect(user1).buySubscription(subscriptionId, allowAutoExtend);
     
-    expect(await nft.checkUserHasActiveSubscription(user.address, subscriptionId)).to.be.equal(true);
-    expect(await hub.checkUserHasActiveSubscription(user.address, subscriptionId)).to.be.equal(true);
+    expect(await nft.checkUserHasActiveSubscription(user1.address, subscriptionId)).to.be.equal(true);
+    expect(await hub.checkUserHasActiveSubscription(user1.address, subscriptionId)).to.be.equal(true);
+
+    await nft.connect(user1).transferFrom(user1.address, user2.address, tokenId);
+
+    // expect(await hub.checkUserHasActiveSubscription(user1.address, subscriptionId)).to.be.equal(false);
+    // expect(await hub.checkUserHasActiveSubscription(user2.address, subscriptionId)).to.be.equal(true);
   });
 });

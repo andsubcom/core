@@ -140,7 +140,7 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
         uint256 subscriptionId = _tokenInfo[tokenId].subscriptionId;
         uint256[] storage fromTokens = _userSubscriptionTokens[from][subscriptionId];
         uint256 length = fromTokens.length;
-        for(uint256 i; i<length; i++) {
+        for(uint256 i=0; i<length; i++) {
             if (fromTokens[i] == tokenId) {
                 // remove
                 if(i != length-1) {
@@ -148,6 +148,7 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
                     fromTokens[i] = fromTokens[length-1];
                 }
                 fromTokens.pop();
+                break;
             }
         }  // if not found will fail in transfer itself
         _userSubscriptionTokens[to][subscriptionId].push(tokenId);
