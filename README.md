@@ -6,10 +6,18 @@ Core smart contracts.
 
 ### Ropsten
 
+### SubscriptionsHub
 Address: `0xF61C6cD6FEa4E407651d94837816aD0f8be350E5`
 
 Verified Code:
 https://ropsten.etherscan.io/address/0xF61C6cD6FEa4E407651d94837816aD0f8be350E5#code
+
+### SubscriptionTicketNFT
+Address: `0xaE077AD19893988c1D7aAa499FaBbadE99D6Feee`
+
+Verified Code:
+https://ropsten.etherscan.io/address/0xae077ad19893988c1d7aaa499fabbade99d6feee#code
+
 
 ## Interaction flow example
 
