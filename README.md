@@ -40,16 +40,16 @@ Subscription ticket is simple NFT-Token so Users may trade it.
 ### Ropsten
 
 ### SubscriptionsHub
-Address: `0xF61C6cD6FEa4E407651d94837816aD0f8be350E5`
+Address: `0xc9B1B7466465287f133303C96fB7d53D035Dbc86`
 
 Verified Code:
-https://ropsten.etherscan.io/address/0xF61C6cD6FEa4E407651d94837816aD0f8be350E5#code
+https://ropsten.etherscan.io/address/0xc9B1B7466465287f133303C96fB7d53D035Dbc86#contracts
 
 ### SubscriptionTicketNFT
-Address: `0xaE077AD19893988c1D7aAa499FaBbadE99D6Feee`
+Address: `0x1F9C7234F0CC5A92B6d9A8aA5836d39856125B35`
 
 Verified Code:
-https://ropsten.etherscan.io/address/0xae077ad19893988c1d7aaa499fabbade99d6feee#code
+https://ropsten.etherscan.io/address/0x1f9c7234f0cc5a92b6d9a8aa5836d39856125b35#code
 
 
 ## Interaction flow example
