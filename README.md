@@ -116,27 +116,69 @@ expect(await hub.checkUserHasActiveSubscription(user1.address, subscriptionId)).
 expect(await hub.checkUserHasActiveSubscription(user2.address, subscriptionId)).to.be.equal(true);
 ```
 
+Auto renewal:
+
+```js
+// renew just before the expiration
+await ethers.provider.send('evm_setNextBlockTimestamp', [endTimestampNum - 24*3600]);
+ethers.provider.send('evm_mine');
+
+// extend is made by the admin
+await hub.extendSubscription(tokenId);
+
+// go after original expiration
+await ethers.provider.send('evm_setNextBlockTimestamp', [endTimestampNum + 24*3600]);
+ethers.provider.send('evm_mine');
+
+// subscription is still active
+expect(await hub.checkUserHasActiveSubscription(user2.address, subscriptionId)).to.be.equal(true);
+```
 
 ## Description
 
 ### Organization
 
+Organization is just group of subscription with the same owner.
+It has:
+- Organizations name.  
+- Subscriptions list.
+- Owner who collects payments and who may create new subscriptions.
 
+### Subscription
 
-- Organizations management.  
-- An organization can have multiple subscriptions.  
-- A client can view organization subscriptions, get subscription cost, and subscribe to it.  
+Subscription declare specific way to use the service.
+It has:
+- Link to Organization.
+- Subscription name.
+- Payable token.
+- Price.
+- Period.
 
+### Subscription ticket (NFT-Token)
 
-### Set up
+Ticket gives access to specific subscription.
+It has:
+- Link to the Subscription.
+- Owner.
+- startTimestamp.
+- endTimestamp.
+- allowAutoRenewal flag.
+
+## Set up
 
 1. Create `.env` and set Alchemy API key to ALCHEMY_API_KEY  
 2. Set Ethereum address private key to PRIVATE_KEY in `.env`  
 3. Install deps `npm install`  
 
-### Run
+## Test
+
+```bash
+npm run test
+```
+
+## Run
 
 * Run new node on localhost: `npx hardhat node`  
 * Run mainnet fork node on localhost: `npx hardhat node --fork https://eth-mainnet.alchemyapi.io/v2/[API_KEY]`  
-* Run tests: `npx hardhat --network localhost tests/subscriptions.ts`  
+* Run tests: `npx hardhat --network localhost tests/test.SubscriptionsHub.js`  
 * Deploy: `npx hardhat --network ropsten run scripts/deploy.ts`  
