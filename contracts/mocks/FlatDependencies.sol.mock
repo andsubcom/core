@@ -1314,141 +1314,6 @@ abstract contract Ownable is Context {
     }
 }
 
-
-library Errors {
- string public constant INVALID_PARAMS = 'INVALID_PARAMS';
- string public constant NOT_HUB = 'NOT_HUB';
- string public constant ZERO_ADDRESS = 'ZERO_ADDRESS';
- string public constant NOT_OWNER = 'NOT_OWNER';
-}
-
-
-/**
- * @dev Implementation of https://eips.ethereum.org/EIPS/eip-721[ERC721] 
- * Non-Fungible Token Standard, including required information about subscription ticket.
- */
-contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
-    uint256 internal _nextTokenId;
-    
-    event SetTokenInfo(
-        uint256 indexed tokenId,
-        uint256 indexed subscriptionId,
-        uint256 startTimestamp,
-        uint256 endTimestamp
-    );
-
-    struct TokenInfo {
-        uint256 subscriptionId;
-        uint256 startTimestamp;
-        uint256 endTimestamp;
-    }
-    mapping (uint256/*tokenId*/ => TokenInfo) internal _tokenInfo;
-    
-    function getTokenInfo(uint256 tokenId) external view returns(
-        uint256 subscriptionId,
-        uint256 startTimestamp,
-        uint256 endTimestamp
-    ) {
-        TokenInfo memory info = _tokenInfo[tokenId];
-        subscriptionId = info.subscriptionId;
-        startTimestamp = info.startTimestamp;
-        endTimestamp = info.endTimestamp;
-    }
-
-    mapping (address /*user*/ => mapping(uint256 /*subscriptionId*/ => uint256[])) private _userSubscriptionTokens;
-
-    address public hub;
-
-    constructor(address _hub) ERC721("SubscriptionTicketNFT", "SubNFT") {
-        require(_hub != address(0), Errors.ZERO_ADDRESS);
-        hub = _hub;
-    }
-
-    modifier onlyHub() {
-        require(msg.sender == hub, Errors.NOT_HUB);
-        _;
-    }
-
-    function getUserTokenIds(address user) external view returns(uint256[] memory) {
-        uint256 userBalance = balanceOf(user);
-        uint256[] memory result = new uint256[](userBalance);
-        for (uint256 i=0; i<userBalance; i++){
-            uint256 tokenId = tokenOfOwnerByIndex(user, i);
-            result[i] = tokenId;
-        }
-        return result;
-    }
-
-    /**
-     * @dev get all tokens for specific user and subscription (including past, current and future)
-     */
-    function getUserSubscriptionTokenIds(address user, uint256 subscriptionId) external view returns(uint256[] memory) {
-        return _userSubscriptionTokens[user][subscriptionId];
-    }
-
-    function z()external view returns(uint256){return 42;}
-
-    function checkUserHasActiveSubscription(address user, uint256 subscriptionId) external view returns(bool) {
-        uint256[] storage tokens = _userSubscriptionTokens[user][subscriptionId];
-        uint length = tokens.length;  // gas optimisation
-        for (uint256 i; i<length; i++) {
-            TokenInfo storage tokenInfo = _tokenInfo[tokens[i]];
-            if ((tokenInfo.startTimestamp <= block.timestamp) && (block.timestamp <= tokenInfo.endTimestamp)){
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function mint(address user, uint256 subscriptionId, uint256 startTimestamp, uint256 endTimestamp) onlyHub external returns (uint256) {
-        require(user != address(0), Errors.ZERO_ADDRESS);
-        uint256 tokenId = _nextTokenId++;
-        _mint(user, tokenId);
-        TokenInfo memory tokenInfo = TokenInfo({
-            subscriptionId: subscriptionId,
-            startTimestamp: startTimestamp,
-            endTimestamp: endTimestamp
-        });
-        _tokenInfo[tokenId] = tokenInfo;
-        _userSubscriptionTokens[user][subscriptionId].push(tokenId);
-        emit SetTokenInfo({
-            tokenId: tokenId,
-            subscriptionId: subscriptionId,
-            startTimestamp: startTimestamp,
-            endTimestamp: endTimestamp
-        });
-        return tokenId;
-    }
-
-    function extend(uint256 tokenId, uint256 newEndTimestamp) onlyHub external {
-        TokenInfo storage tokenInfo = _tokenInfo[tokenId];
-        tokenInfo.endTimestamp = uint256(newEndTimestamp);
-    }
-
-    function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal override(ERC721, ERC721Enumerable) {
-        ERC721Enumerable._beforeTokenTransfer(from, to, tokenId);
-        uint256 subscriptionId = _tokenInfo[tokenId].subscriptionId;
-        uint256[] storage fromTokens = _userSubscriptionTokens[from][subscriptionId];
-        uint256 length = fromTokens.length;
-        for(uint256 i; i<length; i++) {
-            if (fromTokens[i] == tokenId) {
-                // remove
-                if(i != length-1) {
-                    // set last to current to free up the last element
-                    fromTokens[i] = fromTokens[length-1];
-                }
-                fromTokens.pop();
-            }
-        }  // if not found will fail in transfer itself
-        _userSubscriptionTokens[to][subscriptionId].push(tokenId);
-    }
-
-    function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Enumerable) returns (bool) {
-        return super.supportsInterface(interfaceId);
-    }
-}
-
-
 /**
  * @title SafeERC20
  * @dev Wrappers around ERC20 operations that throw on failure (when the token
@@ -1543,140 +1408,355 @@ library SafeERC20 {
 
 
 
-contract SubscriptionsHub {
-    using SafeERC20 for IERC20;
+/**
+ * @dev Library for managing
+ * https://en.wikipedia.org/wiki/Set_(abstract_data_type)[sets] of primitive
+ * types.
+ *
+ * Sets have the following properties:
+ *
+ * - Elements are added, removed, and checked for existence in constant time
+ * (O(1)).
+ * - Elements are enumerated in O(n). No guarantees are made on the ordering.
+ *
+ * ```
+ * contract Example {
+ *     // Add the library methods
+ *     using EnumerableSet for EnumerableSet.AddressSet;
+ *
+ *     // Declare a set state variable
+ *     EnumerableSet.AddressSet private mySet;
+ * }
+ * ```
+ *
+ * As of v3.3.0, sets of type `bytes32` (`Bytes32Set`), `address` (`AddressSet`)
+ * and `uint256` (`UintSet`) are supported.
+ */
+library EnumerableSet {
+    // To implement this library for multiple types with as little code
+    // repetition as possible, we write it in terms of a generic Set type with
+    // bytes32 values.
+    // The Set implementation uses private functions, and user-facing
+    // implementations (such as AddressSet) are just wrappers around the
+    // underlying Set.
+    // This means that we can only create new EnumerableSets for types that fit
+    // in bytes32.
 
-    uint256 internal _nextOrganizationId;
-    uint256 internal _nextSubscriptionId;
-    SubscriptionTicketNFT public nft;
-
-    event OrganizationCreated(
-        uint256 indexed organizationId,
-        address indexed owner,
-        string name
-    );
-
-    event SubscriptionCreated(
-        uint256 indexed organizationId,
-        uint256 indexed subscriptionId,
-        address indexed payableToken,
-        uint256 amount,
-        uint256 period,
-        string name
-    );
-
-    struct Organization {
-        string name;
-        address owner;
-        uint256[] subscriptionIds;
+    struct Set {
+        // Storage of set values
+        bytes32[] _values;
+        // Position of the value in the `values` array, plus 1 because index 0
+        // means a value is not in the set.
+        mapping(bytes32 => uint256) _indexes;
     }
 
-    struct Subscription {
-        string name;
-        uint256 amount;
-        address payableToken;
-        uint256 period;
-        uint256 organizationId;
-    }
-
-    mapping (uint256 /*organizationId*/ => Organization) internal _organizations;
-    mapping (uint256 /*subscriptionId*/ => Subscription) internal _subscriptions;
-
-    event E(string name);
-    function em()external{
-        emit E("xxx");
-    }
-
-    constructor() {
-        nft = new SubscriptionTicketNFT(address(this));
-    }
-
-    function createOrganization(string memory name) external {
-        uint256 organizationId = _nextOrganizationId++;
-        _organizations[organizationId].owner = msg.sender;
-        _organizations[organizationId].name = name;
-        emit OrganizationCreated({
-            organizationId: organizationId,
-            owner: msg.sender,
-            name: name
-        });
-    }
-
-    function createSubscription(uint256 organizationId, string memory name, address payableToken, uint256 amount, uint256 period) external {
-        require(payableToken != address(0), Errors.ZERO_ADDRESS);
-        require(amount != 0, Errors.INVALID_PARAMS);
-        require(period != 0, Errors.INVALID_PARAMS);
-        
-        require(msg.sender == _organizations[organizationId].owner, Errors.NOT_OWNER);
-
-        uint256 subscriptionId = _nextSubscriptionId++;
-        _subscriptions[subscriptionId] = Subscription({
-            name: name,
-            amount: amount,
-            payableToken: payableToken,
-            period: period,
-            organizationId: organizationId
-        });
-        _organizations[organizationId].subscriptionIds.push(subscriptionId);
-        emit SubscriptionCreated({
-            organizationId: organizationId,
-            subscriptionId: subscriptionId,
-            payableToken: payableToken,
-            amount: amount,
-            period: period,
-            name: name
-        });
-    }
-    
-    function buySubscription(uint256 subscriptionId) external {
-        Subscription memory subscription = _subscriptions[subscriptionId];
-        address organizationOwner = _organizations[subscription.organizationId].owner;
-        IERC20(subscription.payableToken).safeTransferFrom(msg.sender, organizationOwner, subscription.amount);
-        nft.mint(msg.sender, subscriptionId, block.timestamp, block.timestamp+subscription.period);
-    }
-    
     /**
-     * @dev extend any existant subscription
-     * @dev anyone can extend any subscription even if he is not the holder.
+     * @dev Add a value to a set. O(1).
+     *
+     * Returns true if the value was added to the set, that is if it was not
+     * already present.
      */
-    function extendSubscription(uint256 tokenId) external {
-        (uint256 subscriptionId, /*startTimestamp*/, uint256 endTimestamp) = nft.getTokenInfo(tokenId);
-        Subscription memory subscription = _subscriptions[subscriptionId];
-        address organizationOwner = _organizations[subscription.organizationId].owner;
-        IERC20(subscription.payableToken).safeTransferFrom(msg.sender, organizationOwner, subscription.amount);
-        uint256 newEndTimestamp = block.timestamp + subscription.period;
-        if (newEndTimestamp < endTimestamp + subscription.period) {  // take max
-            newEndTimestamp = endTimestamp + subscription.period;
+    function _add(Set storage set, bytes32 value) private returns (bool) {
+        if (!_contains(set, value)) {
+            set._values.push(value);
+            // The value is stored at length-1, but we add 1 to all indexes
+            // and use 0 as a sentinel value
+            set._indexes[value] = set._values.length;
+            return true;
+        } else {
+            return false;
         }
-        nft.extend(tokenId, newEndTimestamp);   
-    }
-    
-    function checkUserHasActiveSubscription(address user, uint256 subscriptionId) external view returns(bool) {
-        return nft.checkUserHasActiveSubscription(user, subscriptionId);
-    }
-    
-    function getAllsubscriptionsForOrganization(uint256 organizationId) external view returns(uint256[] memory) {
-        // uint256[] result =  new uint256[];
-        // return result;
-        return _organizations[organizationId].subscriptionIds;
-    }
-    
-    function getOrganizationInfo(uint256 organizationId) view external returns(
-        address owner,
-        string memory name
-    ) {
-        Organization memory organization = _organizations[organizationId];
-        owner = organization.owner;
-        name = organization.name;
     }
 
-    function getSubscriptionInfo(uint256 subscriptionId) view external returns(
-        uint256 amount,
-        address payableToken,
-        uint256 period,
-        uint256 organizationId
-    ) {
-        Subscription memory subscription = _subscriptions[subscriptionId];
-        return (subscription.amount, subscription.payableToken, subscription.period, subscription.organizationId);
+    /**
+     * @dev Removes a value from a set. O(1).
+     *
+     * Returns true if the value was removed from the set, that is if it was
+     * present.
+     */
+    function _remove(Set storage set, bytes32 value) private returns (bool) {
+        // We read and store the value's index to prevent multiple reads from the same storage slot
+        uint256 valueIndex = set._indexes[value];
+
+        if (valueIndex != 0) {
+            // Equivalent to contains(set, value)
+            // To delete an element from the _values array in O(1), we swap the element to delete with the last one in
+            // the array, and then remove the last element (sometimes called as 'swap and pop').
+            // This modifies the order of the array, as noted in {at}.
+
+            uint256 toDeleteIndex = valueIndex - 1;
+            uint256 lastIndex = set._values.length - 1;
+
+            if (lastIndex != toDeleteIndex) {
+                bytes32 lastvalue = set._values[lastIndex];
+
+                // Move the last value to the index where the value to delete is
+                set._values[toDeleteIndex] = lastvalue;
+                // Update the index for the moved value
+                set._indexes[lastvalue] = valueIndex; // Replace lastvalue's index to valueIndex
+            }
+
+            // Delete the slot where the moved value was stored
+            set._values.pop();
+
+            // Delete the index for the deleted slot
+            delete set._indexes[value];
+
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * @dev Returns true if the value is in the set. O(1).
+     */
+    function _contains(Set storage set, bytes32 value) private view returns (bool) {
+        return set._indexes[value] != 0;
+    }
+
+    /**
+     * @dev Returns the number of values on the set. O(1).
+     */
+    function _length(Set storage set) private view returns (uint256) {
+        return set._values.length;
+    }
+
+    /**
+     * @dev Returns the value stored at position `index` in the set. O(1).
+     *
+     * Note that there are no guarantees on the ordering of values inside the
+     * array, and it may change when more values are added or removed.
+     *
+     * Requirements:
+     *
+     * - `index` must be strictly less than {length}.
+     */
+    function _at(Set storage set, uint256 index) private view returns (bytes32) {
+        return set._values[index];
+    }
+
+    /**
+     * @dev Return the entire set in an array
+     *
+     * WARNING: This operation will copy the entire storage to memory, which can be quite expensive. This is designed
+     * to mostly be used by view accessors that are queried without any gas fees. Developers should keep in mind that
+     * this function has an unbounded cost, and using it as part of a state-changing function may render the function
+     * uncallable if the set grows to a point where copying to memory consumes too much gas to fit in a block.
+     */
+    function _values(Set storage set) private view returns (bytes32[] memory) {
+        return set._values;
+    }
+
+    // Bytes32Set
+
+    struct Bytes32Set {
+        Set _inner;
+    }
+
+    /**
+     * @dev Add a value to a set. O(1).
+     *
+     * Returns true if the value was added to the set, that is if it was not
+     * already present.
+     */
+    function add(Bytes32Set storage set, bytes32 value) internal returns (bool) {
+        return _add(set._inner, value);
+    }
+
+    /**
+     * @dev Removes a value from a set. O(1).
+     *
+     * Returns true if the value was removed from the set, that is if it was
+     * present.
+     */
+    function remove(Bytes32Set storage set, bytes32 value) internal returns (bool) {
+        return _remove(set._inner, value);
+    }
+
+    /**
+     * @dev Returns true if the value is in the set. O(1).
+     */
+    function contains(Bytes32Set storage set, bytes32 value) internal view returns (bool) {
+        return _contains(set._inner, value);
+    }
+
+    /**
+     * @dev Returns the number of values in the set. O(1).
+     */
+    function length(Bytes32Set storage set) internal view returns (uint256) {
+        return _length(set._inner);
+    }
+
+    /**
+     * @dev Returns the value stored at position `index` in the set. O(1).
+     *
+     * Note that there are no guarantees on the ordering of values inside the
+     * array, and it may change when more values are added or removed.
+     *
+     * Requirements:
+     *
+     * - `index` must be strictly less than {length}.
+     */
+    function at(Bytes32Set storage set, uint256 index) internal view returns (bytes32) {
+        return _at(set._inner, index);
+    }
+
+    /**
+     * @dev Return the entire set in an array
+     *
+     * WARNING: This operation will copy the entire storage to memory, which can be quite expensive. This is designed
+     * to mostly be used by view accessors that are queried without any gas fees. Developers should keep in mind that
+     * this function has an unbounded cost, and using it as part of a state-changing function may render the function
+     * uncallable if the set grows to a point where copying to memory consumes too much gas to fit in a block.
+     */
+    function values(Bytes32Set storage set) internal view returns (bytes32[] memory) {
+        return _values(set._inner);
+    }
+
+    // AddressSet
+
+    struct AddressSet {
+        Set _inner;
+    }
+
+    /**
+     * @dev Add a value to a set. O(1).
+     *
+     * Returns true if the value was added to the set, that is if it was not
+     * already present.
+     */
+    function add(AddressSet storage set, address value) internal returns (bool) {
+        return _add(set._inner, bytes32(uint256(uint160(value))));
+    }
+
+    /**
+     * @dev Removes a value from a set. O(1).
+     *
+     * Returns true if the value was removed from the set, that is if it was
+     * present.
+     */
+    function remove(AddressSet storage set, address value) internal returns (bool) {
+        return _remove(set._inner, bytes32(uint256(uint160(value))));
+    }
+
+    /**
+     * @dev Returns true if the value is in the set. O(1).
+     */
+    function contains(AddressSet storage set, address value) internal view returns (bool) {
+        return _contains(set._inner, bytes32(uint256(uint160(value))));
+    }
+
+    /**
+     * @dev Returns the number of values in the set. O(1).
+     */
+    function length(AddressSet storage set) internal view returns (uint256) {
+        return _length(set._inner);
+    }
+
+    /**
+     * @dev Returns the value stored at position `index` in the set. O(1).
+     *
+     * Note that there are no guarantees on the ordering of values inside the
+     * array, and it may change when more values are added or removed.
+     *
+     * Requirements:
+     *
+     * - `index` must be strictly less than {length}.
+     */
+    function at(AddressSet storage set, uint256 index) internal view returns (address) {
+        return address(uint160(uint256(_at(set._inner, index))));
+    }
+
+    /**
+     * @dev Return the entire set in an array
+     *
+     * WARNING: This operation will copy the entire storage to memory, which can be quite expensive. This is designed
+     * to mostly be used by view accessors that are queried without any gas fees. Developers should keep in mind that
+     * this function has an unbounded cost, and using it as part of a state-changing function may render the function
+     * uncallable if the set grows to a point where copying to memory consumes too much gas to fit in a block.
+     */
+    function values(AddressSet storage set) internal view returns (address[] memory) {
+        bytes32[] memory store = _values(set._inner);
+        address[] memory result;
+
+        assembly {
+            result := store
+        }
+
+        return result;
+    }
+
+    // UintSet
+
+    struct UintSet {
+        Set _inner;
+    }
+
+    /**
+     * @dev Add a value to a set. O(1).
+     *
+     * Returns true if the value was added to the set, that is if it was not
+     * already present.
+     */
+    function add(UintSet storage set, uint256 value) internal returns (bool) {
+        return _add(set._inner, bytes32(value));
+    }
+
+    /**
+     * @dev Removes a value from a set. O(1).
+     *
+     * Returns true if the value was removed from the set, that is if it was
+     * present.
+     */
+    function remove(UintSet storage set, uint256 value) internal returns (bool) {
+        return _remove(set._inner, bytes32(value));
+    }
+
+    /**
+     * @dev Returns true if the value is in the set. O(1).
+     */
+    function contains(UintSet storage set, uint256 value) internal view returns (bool) {
+        return _contains(set._inner, bytes32(value));
+    }
+
+    /**
+     * @dev Returns the number of values on the set. O(1).
+     */
+    function length(UintSet storage set) internal view returns (uint256) {
+        return _length(set._inner);
+    }
+
+    /**
+     * @dev Returns the value stored at position `index` in the set. O(1).
+     *
+     * Note that there are no guarantees on the ordering of values inside the
+     * array, and it may change when more values are added or removed.
+     *
+     * Requirements:
+     *
+     * - `index` must be strictly less than {length}.
+     */
+    function at(UintSet storage set, uint256 index) internal view returns (uint256) {
+        return uint256(_at(set._inner, index));
+    }
+
+    /**
+     * @dev Return the entire set in an array
+     *
+     * WARNING: This operation will copy the entire storage to memory, which can be quite expensive. This is designed
+     * to mostly be used by view accessors that are queried without any gas fees. Developers should keep in mind that
+     * this function has an unbounded cost, and using it as part of a state-changing function may render the function
+     * uncallable if the set grows to a point where copying to memory consumes too much gas to fit in a block.
+     */
+    function values(UintSet storage set) internal view returns (uint256[] memory) {
+        bytes32[] memory store = _values(set._inner);
+        uint256[] memory result;
+
+        assembly {
+            result := store
+        }
+
+        return result;
     }
 }
