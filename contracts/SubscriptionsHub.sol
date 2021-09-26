@@ -48,11 +48,7 @@ contract SubscriptionsHub {
 
     mapping (uint256 /*organizationId*/ => Organization) internal _organizations;
     mapping (uint256 /*subscriptionId*/ => Subscription) internal _subscriptions;
-
-    event E(string name);
-    function em()external{
-        emit E("xxx");
-    }
+    mapping (address /*user*/ => uint256[] /*organizationIds*/) internal _ownerOrganizationIds;
 
     constructor() {
         nft = new SubscriptionTicketNFT(address(this));
@@ -62,11 +58,16 @@ contract SubscriptionsHub {
         uint256 organizationId = _nextOrganizationId++;
         _organizations[organizationId].owner = msg.sender;
         _organizations[organizationId].name = name;
+        _ownerOrganizationIds[msg.sender].push(organizationId);
         emit OrganizationCreated({
             organizationId: organizationId,
             owner: msg.sender,
             name: name
         });
+    }
+
+    function getOwnerOrganizationIds(address owner) external view returns(uint256[] memory) {
+        return _ownerOrganizationIds[owner];
     }
 
     function createSubscription(uint256 organizationId, string memory name, address payableToken, uint256 amount, uint256 period) external {
@@ -95,11 +96,11 @@ contract SubscriptionsHub {
         });
     }
     
-    function buySubscription(uint256 subscriptionId) external {
+    function buySubscription(uint256 subscriptionId, bool allowAutoExtend) external {
         Subscription memory subscription = _subscriptions[subscriptionId];
         address organizationOwner = _organizations[subscription.organizationId].owner;
         IERC20(subscription.payableToken).safeTransferFrom(msg.sender, organizationOwner, subscription.amount);
-        nft.mint(msg.sender, subscriptionId, block.timestamp, block.timestamp+subscription.period);
+        nft.mint(msg.sender, subscriptionId, block.timestamp, block.timestamp+subscription.period, allowAutoExtend);
     }
     
     /**
@@ -107,7 +108,13 @@ contract SubscriptionsHub {
      * @dev anyone can extend any subscription even if he is not the holder.
      */
     function extendSubscription(uint256 tokenId) external {
-        (uint256 subscriptionId, /*startTimestamp*/, uint256 endTimestamp) = nft.getTokenInfo(tokenId);
+        (uint256 subscriptionId, /*startTimestamp*/, uint256 endTimestamp, bool allowAutoExtend) = nft.getTokenInfo(tokenId);
+        address owner = nft.ownerOf(tokenId);
+        if (owner != msg.sender) {
+            require(allowAutoExtend, Errors.OWNER_DISALLOW_AUTO_EXTEND);
+            require(block.timestamp > endTimestamp - 1 days, Errors.AUTO_EXTEND_TOO_EARLY);
+        }
+        
         Subscription memory subscription = _subscriptions[subscriptionId];
         address organizationOwner = _organizations[subscription.organizationId].owner;
         IERC20(subscription.payableToken).safeTransferFrom(msg.sender, organizationOwner, subscription.amount);

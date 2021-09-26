@@ -117,8 +117,9 @@ describe("Subscriptions Hub", function () {
     expect(await hub.checkUserHasActiveSubscription(user.address, subscriptionId)).to.be.equal(false);
 
     const tokenId = toBN(0);
+    const allowAutoExtend = true;
     await coin.connect(user).approve(hub.address, price);
-    await hub.connect(user).buySubscription(subscriptionId);
+    await hub.connect(user).buySubscription(subscriptionId, allowAutoExtend);
     
     expect(await nft.checkUserHasActiveSubscription(user.address, subscriptionId)).to.be.equal(true);
     expect(await hub.checkUserHasActiveSubscription(user.address, subscriptionId)).to.be.equal(true);

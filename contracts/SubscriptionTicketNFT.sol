@@ -20,25 +20,29 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
         uint256 indexed tokenId,
         uint256 indexed subscriptionId,
         uint256 startTimestamp,
-        uint256 endTimestamp
+        uint256 endTimestamp,
+        bool allowAutoExtend  // it allows owner to call extend
     );
 
     struct TokenInfo {
         uint256 subscriptionId;
         uint256 startTimestamp;
         uint256 endTimestamp;
+        bool allowAutoExtend;
     }
     mapping (uint256/*tokenId*/ => TokenInfo) internal _tokenInfo;
     
     function getTokenInfo(uint256 tokenId) external view returns(
         uint256 subscriptionId,
         uint256 startTimestamp,
-        uint256 endTimestamp
+        uint256 endTimestamp,
+        bool allowAutoExtend
     ) {
         TokenInfo memory info = _tokenInfo[tokenId];
         subscriptionId = info.subscriptionId;
         startTimestamp = info.startTimestamp;
         endTimestamp = info.endTimestamp;
+        allowAutoExtend = info.allowAutoExtend;
     }
 
     mapping (address /*user*/ => mapping(uint256 /*subscriptionId*/ => uint256[])) private _userSubscriptionTokens;
@@ -72,8 +76,6 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
         return _userSubscriptionTokens[user][subscriptionId];
     }
 
-    function z()external view returns(uint256){return 42;}
-
     function checkUserHasActiveSubscription(address user, uint256 subscriptionId) external view returns(bool) {
         uint256[] storage tokens = _userSubscriptionTokens[user][subscriptionId];
         uint length = tokens.length;  // gas optimisation
@@ -86,14 +88,15 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
         return false;
     }
 
-    function mint(address user, uint256 subscriptionId, uint256 startTimestamp, uint256 endTimestamp) onlyHub external returns (uint256) {
+    function mint(address user, uint256 subscriptionId, uint256 startTimestamp, uint256 endTimestamp, bool allowAutoExtend) onlyHub external returns (uint256) {
         require(user != address(0), Errors.ZERO_ADDRESS);
         uint256 tokenId = _nextTokenId++;
         _mint(user, tokenId);
         TokenInfo memory tokenInfo = TokenInfo({
             subscriptionId: subscriptionId,
             startTimestamp: startTimestamp,
-            endTimestamp: endTimestamp
+            endTimestamp: endTimestamp,
+            allowAutoExtend: allowAutoExtend
         });
         _tokenInfo[tokenId] = tokenInfo;
         _userSubscriptionTokens[user][subscriptionId].push(tokenId);
@@ -101,14 +104,35 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
             tokenId: tokenId,
             subscriptionId: subscriptionId,
             startTimestamp: startTimestamp,
-            endTimestamp: endTimestamp
+            endTimestamp: endTimestamp,
+            allowAutoExtend: allowAutoExtend
         });
         return tokenId;
     }
 
     function extend(uint256 tokenId, uint256 newEndTimestamp) onlyHub external {
         TokenInfo storage tokenInfo = _tokenInfo[tokenId];
-        tokenInfo.endTimestamp = uint256(newEndTimestamp);
+        tokenInfo.endTimestamp = newEndTimestamp;
+        emit SetTokenInfo({
+            tokenId: tokenId,
+            subscriptionId: tokenInfo.subscriptionId,
+            startTimestamp: tokenInfo.startTimestamp,
+            endTimestamp: newEndTimestamp,
+            allowAutoExtend: tokenInfo.allowAutoExtend
+        });
+    }
+
+    function setAllowAutoExtend(uint256 tokenId, bool allowAutoExtend) external {
+        require(msg.sender == ownerOf(tokenId), Errors.NOT_OWNER);
+        TokenInfo storage tokenInfo = _tokenInfo[tokenId];
+        tokenInfo.allowAutoExtend = allowAutoExtend;
+        emit SetTokenInfo({
+            tokenId: tokenId,
+            subscriptionId: tokenInfo.subscriptionId,
+            startTimestamp: tokenInfo.startTimestamp,
+            endTimestamp: tokenInfo.endTimestamp,
+            allowAutoExtend: allowAutoExtend
+        });
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal override(ERC721, ERC721Enumerable) {
