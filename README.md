@@ -3,7 +3,7 @@
 Core smart contracts.
 Gives frictionless auto-renewal subscriptions to any service.
 
-Just create your organization in the `SubscriptionsHub`.
+🥳 Just create your organization in the `SubscriptionsHub`.
 Describe subscriptions variants e.g.:
 
 | Type | Period | Price |
@@ -15,13 +15,13 @@ Describe subscriptions variants e.g.:
 | PLATINUM  |  1 month  |  60 USDT |
 | PLATINUM  |  1 year  | 500 USDT  |
 
-User selects the subscription and buy it setting the allowAutoRenewal flag.
+😎 User selects the subscription and buy it setting the allowAutoRenewal flag.
 
-User can use any token to pay, it will be swapped automatically (via DEX).
+💥 User can use any token to pay, it will be swapped automatically (via DEX).
 
-If user wants auto-renewal he may set big erc20 allowance, so the admin of the contract will be able to automatically withdraw the next payment when the subscription period end (but not earlier than 1 day before the expiration).
+🧐 If user wants auto-renewal he may set big erc20 allowance, so the admin of the contract will be able to automatically withdraw the next payment when the subscription period end (but not earlier than 1 day before the expiration).
 
-Subscription ticket is simple NFT-Token so Users may trade it. 
+🤑 Subscription ticket is simple NFT-Token so Users may trade it. 
 
 ## Development RoadMap
 
