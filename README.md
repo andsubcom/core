@@ -1,6 +1,37 @@
-# Core
+# ⚙ Core
 
 Core smart contracts.
+Gives frictionless auto-renewal subscriptions to any service.
+
+Just create your organization in the `SubscriptionsHub`.
+Describe subscriptions variants e.g.:
+
+| Type | Period | Price |
+|---|---|---|
+| GOLD  |  1 week | 10 USDT  |
+| GOLD  |  1 month  |  25 USDT |
+| GOLD  |  1 year  | 200 USDT  |
+| PLATINUM  |  1 week | 30 USDT  |
+| PLATINUM  |  1 month  |  60 USDT |
+| PLATINUM  |  1 year  | 500 USDT  |
+
+User selects the subscription and buy it setting the allowAutoRenewal flag.
+
+If user wants auto-renewal he may set big erc20 allowance, so the admin of the contract will be able to automatically withdraw the next payment when the subscription period end (but not earlier than 1 day before the expiration).
+
+Subscription ticket is simple NFT-Token so Users may trade it. 
+
+## Development RoadMap
+
+- [x] Organizations registry.
+- [x] Subscriptions registry.
+- [x] NFT contract for subscription-ticket.
+- [x] Subscription selling for payable token.
+- [x] Subscription auto renewal by user choice.
+- [ ] Streaming subscriptions - pay for usage per second.
+- [ ] Pay by any token (via Zerion DEX API and 1inch).
+- [ ] Pay on any blockchain (via CrossChain bridge).
+- [ ] Custom NFT picture.
 
 ## Deployed
 
