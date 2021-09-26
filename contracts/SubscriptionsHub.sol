@@ -6,6 +6,7 @@ import {IERC721} from '@openzeppelin/contracts/token/ERC721/IERC721.sol';
 import {IERC20} from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
 import {SubscriptionTicketNFT} from './SubscriptionTicketNFT.sol';
 import "./Errors.sol";
@@ -16,7 +17,8 @@ contract SubscriptionsHub is Ownable {
 
     uint256 internal _nextOrganizationId;
     uint256 internal _nextSubscriptionId;
-    SubscriptionTicketNFT public nft;
+    SubscriptionTicketNFT immutable public nft;
+    IUniswapV2Router02 immutable public router;
 
     event OrganizationCreated(
         uint256 indexed organizationId,
@@ -53,6 +55,7 @@ contract SubscriptionsHub is Ownable {
 
     constructor() Ownable() {
         nft = new SubscriptionTicketNFT(address(this));
+        router = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
     }
 
     function createOrganization(string memory name) external {
@@ -104,6 +107,21 @@ contract SubscriptionsHub is Ownable {
         nft.mint(msg.sender, subscriptionId, block.timestamp, block.timestamp+subscription.period, allowAutoExtend);
     }
 
+    function buySubscriptionByAnyToken(
+        uint256 subscriptionId,
+        bool allowAutoExtend,
+        address token,
+        uint256 amountInMax,
+        uint256 deadline
+    ) external {
+        Subscription memory subscription = _subscriptions[subscriptionId];
+        address organizationOwner = _organizations[subscription.organizationId].owner;
+
+        _swapTo(token, subscription.payableToken, subscription.amount, deadline, msg.sender, organizationOwner, amountInMax);
+
+        nft.mint(msg.sender, subscriptionId, block.timestamp, block.timestamp+subscription.period, allowAutoExtend);
+    }
+
     /**
      * @dev Extend any existant subscription.
      * @dev May be called by the owner or by the token holder.
@@ -127,7 +145,52 @@ contract SubscriptionsHub is Ownable {
         }
         nft.extend(tokenId, newEndTimestamp);   
     }
-    
+
+    function _swapTo(address fromToken, address toToken, uint256 amount, uint256 deadline, address from, address to, uint256 amountInMax) internal {
+        address[] memory path = new address[](2);
+        path[0] = fromToken;
+        path[1] = toToken;
+        uint256[] memory swapAmounts = router.getAmountsIn(amount, path);
+        uint256 swapAmount = swapAmounts[0];
+        IERC20(fromToken).safeTransferFrom(from, address(this), swapAmount);
+        IERC20(fromToken).approve(address(router), swapAmount);
+        uint256[] memory amounts = router.swapTokensForExactTokens(
+          amount,
+          amountInMax,
+          path,
+          to,
+          deadline
+        );
+        require(amounts[0] == swapAmount, Errors.DEX_FAIL);
+    }
+
+    function extendSubscriptionByAnyToken(
+        uint256 tokenId,
+        address token,
+        uint256 amountInMax,
+        uint256 deadline
+    ) external {
+        (uint256 subscriptionId, /*startTimestamp*/, uint256 endTimestamp, bool allowAutoExtend) = nft.getTokenInfo(tokenId);
+        address holder = nft.ownerOf(tokenId);
+        if (holder != msg.sender) {
+            require(msg.sender == owner(), Errors.NOT_OWNER);
+            require(allowAutoExtend, Errors.OWNER_DISALLOW_AUTO_EXTEND);
+            require(block.timestamp >= endTimestamp - 1 days, Errors.AUTO_BY_ADMIN_EXTEND_TOO_EARLY);
+        }
+
+        Subscription memory subscription = _subscriptions[subscriptionId];
+        address organizationOwner = _organizations[subscription.organizationId].owner;
+
+        _swapTo(token, subscription.payableToken, subscription.amount, deadline, holder, organizationOwner, amountInMax);
+
+        uint256 newEndTimestamp = block.timestamp + subscription.period;
+        if (newEndTimestamp < endTimestamp + subscription.period) {  // take max
+            newEndTimestamp = endTimestamp + subscription.period;
+        }
+        nft.extend(tokenId, newEndTimestamp);
+    }
+
+
     function checkUserHasActiveSubscription(address user, uint256 subscriptionId) external view returns(bool) {
         return nft.checkUserHasActiveSubscription(user, subscriptionId);
     }

@@ -17,6 +17,8 @@ Describe subscriptions variants e.g.:
 
 User selects the subscription and buy it setting the allowAutoRenewal flag.
 
+User can use any token to pay, it will be swapped automatically (via DEX).
+
 If user wants auto-renewal he may set big erc20 allowance, so the admin of the contract will be able to automatically withdraw the next payment when the subscription period end (but not earlier than 1 day before the expiration).
 
 Subscription ticket is simple NFT-Token so Users may trade it. 
@@ -28,8 +30,8 @@ Subscription ticket is simple NFT-Token so Users may trade it.
 - [x] NFT contract for subscription-ticket.
 - [x] Subscription selling for payable token.
 - [x] Subscription auto renewal by user choice.
+- [x] Pay by any token (via Zerion DEX API and UniSwap).
 - [ ] Streaming subscriptions - pay for usage per second.
-- [ ] Pay by any token (via Zerion DEX API and 1inch).
 - [ ] Pay on any blockchain (via CrossChain bridge).
 - [ ] Custom NFT picture.
 
@@ -170,15 +172,9 @@ It has:
 2. Set Ethereum address private key to PRIVATE_KEY in `.env`  
 3. Install deps `npm install`  
 
-## Test
-
-```bash
-npm run test
-```
-
 ## Run
 
 * Run new node on localhost: `npx hardhat node`  
 * Run mainnet fork node on localhost: `npx hardhat node --fork https://eth-mainnet.alchemyapi.io/v2/[API_KEY]`  
-* Run tests: `npx hardhat --network localhost tests/test.SubscriptionsHub.js`  
+* Run tests: `npx hardhat --network localhost test`  
 * Deploy: `npx hardhat --network ropsten run scripts/deploy.ts`  
