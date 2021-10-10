@@ -130,7 +130,7 @@ contract ProductsHub is Ownable {
         require(amounts[0] == swapAmount, Errors.DEX_FAIL);
     }
 
-    function extendProductByAnyToken(
+    function extendSubscriptionByAnyToken(
         uint256 tokenId,
         address token,
         uint256 amountInMax,
