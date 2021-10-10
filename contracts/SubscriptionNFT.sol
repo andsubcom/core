@@ -50,6 +50,8 @@ contract SubscriptionNFT is ERC721, ERC721Enumerable, Ownable, ERC721URIStorage 
     }
 
     function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
+        _userProductTokens[ownerOf(tokenId)][_tokenInfo[tokenId].productId].remove(tokenId);
+        _productTokens[_tokenInfo[tokenId].productId].remove(tokenId);
         super._burn(tokenId);  // take care about multiple inheritance
         delete _tokenInfo[tokenId];
     }
@@ -64,6 +66,7 @@ contract SubscriptionNFT is ERC721, ERC721Enumerable, Ownable, ERC721URIStorage 
     }
 
     mapping (address /*user*/ => mapping(string /*productId*/ => EnumerableSet.UintSet /*tokenIds set*/)) private _userProductTokens;
+    mapping(string /*productId*/ => EnumerableSet.UintSet /*tokenIds set*/) private _productTokens;
 
     address public hub;
 
@@ -113,6 +116,15 @@ contract SubscriptionNFT is ERC721, ERC721Enumerable, Ownable, ERC721URIStorage 
         return false;
     }
 
+    function getProductTokens(string memory productId) external view returns(uint256[] memory) {
+        uint256 length = _productTokens[productId].length();
+        uint256[] memory result = new uint256[](length);
+        for (uint256 i=0; i<length; i++){
+            result[i] = _productTokens[productId].at(i);
+        }
+        return result;
+    }
+
     function mint(address user, string memory productId, uint256 startTimestamp, uint256 endTimestamp, bool allowAutoExtend, string memory uri) onlyHub external returns (uint256) {
         require(user != address(0), Errors.ZERO_ADDRESS);
         uint256 tokenId = _nextTokenId++;
@@ -125,6 +137,7 @@ contract SubscriptionNFT is ERC721, ERC721Enumerable, Ownable, ERC721URIStorage 
         });
         _tokenInfo[tokenId] = tokenInfo;
         _userProductTokens[user][productId].add(tokenId);
+        _productTokens[productId].add(tokenId);
         _setTokenURI(tokenId, uri);
         emit SetTokenInfo({
             tokenId: tokenId,

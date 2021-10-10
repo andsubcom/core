@@ -98,7 +98,7 @@ contract ProductsHub is Ownable {
      * @dev May be called by the owner or by the token holder.
      * @dev Owner can extend product not early than 1 days before the endTimestamp.
      */
-    function extendSubscription(uint256 tokenId) external {
+    function withdrawPaymentForToken(uint256 tokenId) public {
         (string memory productId, /*startTimestamp*/, uint256 endTimestamp, bool allowAutoExtend, /*uri*/) = nft.getTokenInfo(tokenId);
         address holder = nft.ownerOf(tokenId);
         if (holder != msg.sender) {
@@ -116,13 +116,15 @@ contract ProductsHub is Ownable {
         nft.extend(tokenId, newEndTimestamp);   
     }
 
-    function withdraw(string memory productId) external {
-        Product memory product = _products[productId];
-        require(product.owner != address(0), Errors.NOT_EXISTS);
-//        uint256 amount;
-//        address payableToken;
-//        uint256 period;
-//        address owner;
+    function withdrawPaymentForTokens(uint256[] memory tokenIds) public {
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            withdrawPaymentForToken(tokenIds[i]);
+        }
+    }
+
+    // may go our of gas limit
+    function withdrawPaymentForProduct(string memory productId) external {
+        withdrawPaymentForTokens(nft.getProductTokens(productId));
     }
 
     function _swapTo(address fromToken, address toToken, uint256 amount, uint256 deadline, address from, address to, uint256 amountInMax) internal {
