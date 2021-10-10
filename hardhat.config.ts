@@ -1,6 +1,6 @@
 import * as dotenv from 'dotenv'
 import '@nomiclabs/hardhat-waffle'
-import "@nomiclabs/hardhat-etherscan";
+import '@nomiclabs/hardhat-etherscan'
 import { HardhatUserConfig } from 'hardhat/types'
 
 dotenv.config()
@@ -19,6 +19,9 @@ const config: HardhatUserConfig = {
       url: `https://eth-ropsten.alchemyapi.io/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts: accounts
     },
+  },
+  etherscan: {
+    apiKey: process.env.ETHERSCAN_API_KEY
   },
   solidity: "0.8.6",
 }

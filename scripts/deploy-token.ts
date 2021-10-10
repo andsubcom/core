@@ -3,19 +3,20 @@ const { BigNumber } = require("@ethersproject/bignumber");
 
 async function main() {
   const deployer = await (ethers.provider.getSigner()).getAddress()
+  console.log(`deployer = ${deployer}`)
 
-  const XCoin = await ethers.getContractFactory('XCoin')
-  console.log('Deploying XCoin...')
-  const xcoin = await XCoin.deploy()
-  await xcoin.deployed()
-  console.log('XCoin deployed:', xcoin.address)
+  const MintableERC20 = await ethers.getContractFactory('MintableERC20')
+  console.log('Deploying MintableERC20...')
+  const token = await MintableERC20.deploy('USDZ Coin', 'USDZ')
+  await token.deployed()
+  console.log('MintableERC20 deployed:', token.address)
 
-  const tokenAmount = BigNumber.from('1000000000000000000000')
-  xcoin.mint(tokenAmount, deployer, { gasLimit: 500000 })
-  console.log('minted', tokenAmount.toString())
+  // const tokenAmount = BigNumber.from('1000000000000000000000')
+  // token.mint(tokenAmount, deployer, { gasLimit: 500000 })
+  // console.log('minted', tokenAmount.toString())
 
-  const balance = await xcoin.balanceOf(deployer)
-  console.log('deployer balance:', balance)
+  // const balance = await token.balanceOf(deployer)
+  // console.log('deployer balance:', balance)
 }
 
 main()
