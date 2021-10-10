@@ -12,22 +12,22 @@ import "./Errors.sol";
 
 /**
  * @dev Implementation of https://eips.ethereum.org/EIPS/eip-721[ERC721] 
- * Non-Fungible Token Standard, including required information about subscription ticket.
+ * Non-Fungible Token Standard, including required information about product ticket.
  */
-contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
+contract SubscriptionNFT is ERC721, ERC721Enumerable, Ownable {
     using EnumerableSet for EnumerableSet.UintSet;
     uint256 internal _nextTokenId;
     
     event SetTokenInfo(
         uint256 indexed tokenId,
-        uint256 indexed subscriptionId,
+        string indexed productId,
         uint256 startTimestamp,
         uint256 endTimestamp,
         bool allowAutoExtend  // it allows owner to call extend
     );
 
     struct TokenInfo {
-        uint256 subscriptionId;
+        string productId;
         uint256 startTimestamp;
         uint256 endTimestamp;
         bool allowAutoExtend;
@@ -35,23 +35,23 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
     mapping (uint256/*tokenId*/ => TokenInfo) internal _tokenInfo;
     
     function getTokenInfo(uint256 tokenId) external view returns(
-        uint256 subscriptionId,
+        string memory productId,
         uint256 startTimestamp,
         uint256 endTimestamp,
         bool allowAutoExtend
     ) {
         TokenInfo memory info = _tokenInfo[tokenId];
-        subscriptionId = info.subscriptionId;
+        productId = info.productId;
         startTimestamp = info.startTimestamp;
         endTimestamp = info.endTimestamp;
         allowAutoExtend = info.allowAutoExtend;
     }
 
-    mapping (address /*user*/ => mapping(uint256 /*subscriptionId*/ => EnumerableSet.UintSet /*tokenIds set*/)) private _userSubscriptionTokens;
+    mapping (address /*user*/ => mapping(string /*productId*/ => EnumerableSet.UintSet /*tokenIds set*/)) private _userProductTokens;
 
     address public hub;
 
-    constructor(address _hub) ERC721("SubscriptionTicketNFT", "SubNFT") {
+    constructor(address _hub) ERC721("SubscriptionNFT", "SubNFT") {
         require(_hub != address(0), Errors.ZERO_ADDRESS);
         hub = _hub;
     }
@@ -72,10 +72,10 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
     }
 
     /**
-     * @dev get all tokens for specific user and subscription (including past, current and future)
+     * @dev get all tokens for specific user and product (including past, current and future)
      */
-    function getUserSubscriptionTokenIds(address user, uint256 subscriptionId) external view returns(uint256[] memory) {
-        EnumerableSet.UintSet storage set = _userSubscriptionTokens[user][subscriptionId];
+    function getUserProductSubscriptionIds(address user, string memory productId) external view returns(uint256[] memory) {
+        EnumerableSet.UintSet storage set = _userProductTokens[user][productId];
         uint256 length = set.length();
         uint256[] memory result = new uint256[](length);
         for (uint256 i=0; i<length; i++){
@@ -84,8 +84,8 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
         return result;
     }
 
-    function checkUserHasActiveSubscription(address user, uint256 subscriptionId) external view returns(bool) {
-        EnumerableSet.UintSet storage set = _userSubscriptionTokens[user][subscriptionId];
+    function checkUserHasActiveSubscription(address user, string memory productId) external view returns(bool) {
+        EnumerableSet.UintSet storage set = _userProductTokens[user][productId];
         uint256 length = set.length();  // gas optimisation
         for (uint256 i=0; i<length; i++){
             uint256 tokenId = set.at(i);
@@ -97,21 +97,21 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
         return false;
     }
 
-    function mint(address user, uint256 subscriptionId, uint256 startTimestamp, uint256 endTimestamp, bool allowAutoExtend) onlyHub external returns (uint256) {
+    function mint(address user, string memory productId, uint256 startTimestamp, uint256 endTimestamp, bool allowAutoExtend) onlyHub external returns (uint256) {
         require(user != address(0), Errors.ZERO_ADDRESS);
         uint256 tokenId = _nextTokenId++;
         _mint(user, tokenId);
         TokenInfo memory tokenInfo = TokenInfo({
-            subscriptionId: subscriptionId,
+            productId: productId,
             startTimestamp: startTimestamp,
             endTimestamp: endTimestamp,
             allowAutoExtend: allowAutoExtend
         });
         _tokenInfo[tokenId] = tokenInfo;
-        _userSubscriptionTokens[user][subscriptionId].add(tokenId);
+        _userProductTokens[user][productId].add(tokenId);
         emit SetTokenInfo({
             tokenId: tokenId,
-            subscriptionId: subscriptionId,
+            productId: productId,
             startTimestamp: startTimestamp,
             endTimestamp: endTimestamp,
             allowAutoExtend: allowAutoExtend
@@ -124,7 +124,7 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
         tokenInfo.endTimestamp = newEndTimestamp;
         emit SetTokenInfo({
             tokenId: tokenId,
-            subscriptionId: tokenInfo.subscriptionId,
+            productId: tokenInfo.productId,
             startTimestamp: tokenInfo.startTimestamp,
             endTimestamp: newEndTimestamp,
             allowAutoExtend: tokenInfo.allowAutoExtend
@@ -137,7 +137,7 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
         tokenInfo.allowAutoExtend = allowAutoExtend;
         emit SetTokenInfo({
             tokenId: tokenId,
-            subscriptionId: tokenInfo.subscriptionId,
+            productId: tokenInfo.productId,
             startTimestamp: tokenInfo.startTimestamp,
             endTimestamp: tokenInfo.endTimestamp,
             allowAutoExtend: allowAutoExtend
@@ -146,9 +146,9 @@ contract SubscriptionTicketNFT is ERC721, ERC721Enumerable, Ownable {
 
     function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal override(ERC721, ERC721Enumerable) {
         ERC721Enumerable._beforeTokenTransfer(from, to, tokenId);
-        uint256 subscriptionId = _tokenInfo[tokenId].subscriptionId;
-        _userSubscriptionTokens[from][subscriptionId].remove(tokenId);
-        _userSubscriptionTokens[to][subscriptionId].add(tokenId);
+        string memory productId = _tokenInfo[tokenId].productId;
+        _userProductTokens[from][productId].remove(tokenId);
+        _userProductTokens[to][productId].add(tokenId);
     }
 
     function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Enumerable) returns (bool) {

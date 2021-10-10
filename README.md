@@ -175,6 +175,6 @@ It has:
 ## Run
 
 * Run new node on localhost: `npx hardhat node`  
-* Run mainnet fork node on localhost: `npx hardhat node --fork https://eth-mainnet.alchemyapi.io/v2/[API_KEY]`  
+* Run mainnet fork node on localhost: `npx hardhat node --fork https://eth-mainnet.alchemyapi.io/v2/$ALCHEMY_API_KEY`  
 * Run tests: `npx hardhat --network localhost test`  
 * Deploy: `npx hardhat --network ropsten run scripts/deploy.ts`  
