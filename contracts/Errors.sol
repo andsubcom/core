@@ -10,4 +10,5 @@ string public constant INVALID_PARAMS = 'INVALID_PARAMS';
  string public constant OWNER_DISALLOW_AUTO_EXTEND = 'OWNER_DISALLOW_AUTO_EXTEND';
  string public constant AUTO_BY_ADMIN_EXTEND_TOO_EARLY = 'AUTO_BY_ADMIN_EXTEND_TOO_EARLY';
  string public constant ALREADY_CREATED = 'ALREADY_CREATED';
+ string public constant NOT_EXISTS = 'NOT_EXISTS';
 }

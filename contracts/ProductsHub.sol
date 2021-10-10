@@ -24,7 +24,8 @@ contract ProductsHub is Ownable {
         address indexed payableToken,
         uint256 amount,
         uint256 period,
-        string name
+        string name,
+        string uri
     );
 
     struct Product {
@@ -33,6 +34,7 @@ contract ProductsHub is Ownable {
         address payableToken;
         uint256 period;
         address owner;
+        string uri;
     }
 
     mapping (string /*productId*/ => Product) internal _products;
@@ -47,7 +49,7 @@ contract ProductsHub is Ownable {
         return _ownerProductIds[owner];
     }
 
-    function createProduct(string memory productId, string memory name, address payableToken, uint256 amount, uint256 period) external {
+    function createProduct(string memory productId, string memory name, address payableToken, uint256 amount, uint256 period, string memory uri) external {
         require(payableToken != address(0), Errors.ZERO_ADDRESS);
         require(amount != 0, Errors.INVALID_PARAMS);
         require(period != 0, Errors.INVALID_PARAMS);
@@ -58,7 +60,8 @@ contract ProductsHub is Ownable {
             amount: amount,
             payableToken: payableToken,
             period: period,
-            owner: msg.sender
+            owner: msg.sender,
+            uri: uri
         });
         _ownerProductIds[msg.sender].push(productId);
         emit ProductCreated({
@@ -67,14 +70,15 @@ contract ProductsHub is Ownable {
             payableToken: payableToken,
             amount: amount,
             period: period,
-            name: name
+            name: name,
+            uri: uri
         });
     }
     
     function subscribe(string memory productId, bool allowAutoExtend) external {
         Product memory product = _products[productId];
         IERC20(product.payableToken).safeTransferFrom(msg.sender, product.owner, product.amount);
-        nft.mint(msg.sender, productId, block.timestamp, block.timestamp+product.period, allowAutoExtend);
+        nft.mint(msg.sender, productId, block.timestamp, block.timestamp+product.period, allowAutoExtend, product.uri);
     }
 
     function subscribeByAnyToken(
@@ -86,7 +90,7 @@ contract ProductsHub is Ownable {
     ) external {
         Product memory product = _products[productId];
         _swapTo(token, product.payableToken, product.amount, deadline, msg.sender, product.owner, amountInMax);
-        nft.mint(msg.sender, productId, block.timestamp, block.timestamp+product.period, allowAutoExtend);
+        nft.mint(msg.sender, productId, block.timestamp, block.timestamp+product.period, allowAutoExtend, product.uri);
     }
 
     /**
@@ -95,7 +99,7 @@ contract ProductsHub is Ownable {
      * @dev Owner can extend product not early than 1 days before the endTimestamp.
      */
     function extendSubscription(uint256 tokenId) external {
-        (string memory productId, /*startTimestamp*/, uint256 endTimestamp, bool allowAutoExtend) = nft.getTokenInfo(tokenId);
+        (string memory productId, /*startTimestamp*/, uint256 endTimestamp, bool allowAutoExtend, /*uri*/) = nft.getTokenInfo(tokenId);
         address holder = nft.ownerOf(tokenId);
         if (holder != msg.sender) {
             require(msg.sender == owner(), Errors.NOT_OWNER);
@@ -110,6 +114,15 @@ contract ProductsHub is Ownable {
             newEndTimestamp = endTimestamp + product.period;
         }
         nft.extend(tokenId, newEndTimestamp);   
+    }
+
+    function withdraw(string memory productId) external {
+        Product memory product = _products[productId];
+        require(product.owner != address(0), Errors.NOT_EXISTS);
+//        uint256 amount;
+//        address payableToken;
+//        uint256 period;
+//        address owner;
     }
 
     function _swapTo(address fromToken, address toToken, uint256 amount, uint256 deadline, address from, address to, uint256 amountInMax) internal {
@@ -136,7 +149,7 @@ contract ProductsHub is Ownable {
         uint256 amountInMax,
         uint256 deadline
     ) external {
-        (string memory productId, /*startTimestamp*/, uint256 endTimestamp, bool allowAutoExtend) = nft.getTokenInfo(tokenId);
+        (string memory productId, /*startTimestamp*/, uint256 endTimestamp, bool allowAutoExtend, /*uri*/) = nft.getTokenInfo(tokenId);
         address holder = nft.ownerOf(tokenId);
         if (holder != msg.sender) {
             require(msg.sender == owner(), Errors.NOT_OWNER);
@@ -165,7 +178,8 @@ contract ProductsHub is Ownable {
         uint256 amount,
         address payableToken,
         uint256 period,
-        address owner__  // dirty naming hack to not misused Ownable attributes
+        address owner__,  // dirty naming hack to not misused Ownable attributes
+        string memory uri
     ) {
         Product memory product = _products[productId];
         id = productId;
@@ -174,5 +188,6 @@ contract ProductsHub is Ownable {
         payableToken = product.payableToken;
         period = product.period;
         owner__ = product.owner;
+        uri = product.uri;
     }
 }

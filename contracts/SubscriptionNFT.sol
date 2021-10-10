@@ -14,7 +14,7 @@ import "./Errors.sol";
  * @dev Implementation of https://eips.ethereum.org/EIPS/eip-721[ERC721] 
  * Non-Fungible Token Standard, including required information about product ticket.
  */
-contract SubscriptionNFT is ERC721, ERC721Enumerable, Ownable {
+contract SubscriptionNFT is ERC721, ERC721Enumerable, Ownable, ERC721URIStorage {
     using EnumerableSet for EnumerableSet.UintSet;
     uint256 internal _nextTokenId;
     
@@ -33,18 +33,34 @@ contract SubscriptionNFT is ERC721, ERC721Enumerable, Ownable {
         bool allowAutoExtend;
     }
     mapping (uint256/*tokenId*/ => TokenInfo) internal _tokenInfo;
-    
+
     function getTokenInfo(uint256 tokenId) external view returns(
         string memory productId,
         uint256 startTimestamp,
         uint256 endTimestamp,
-        bool allowAutoExtend
+        bool allowAutoExtend,
+        string memory uri
     ) {
         TokenInfo memory info = _tokenInfo[tokenId];
         productId = info.productId;
         startTimestamp = info.startTimestamp;
         endTimestamp = info.endTimestamp;
         allowAutoExtend = info.allowAutoExtend;
+        uri = tokenURI(tokenId);
+    }
+
+    function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
+        super._burn(tokenId);  // take care about multiple inheritance
+        delete _tokenInfo[tokenId];
+    }
+
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        override(ERC721, ERC721URIStorage)
+        returns (string memory)
+    {
+        return super.tokenURI(tokenId);
     }
 
     mapping (address /*user*/ => mapping(string /*productId*/ => EnumerableSet.UintSet /*tokenIds set*/)) private _userProductTokens;
@@ -97,7 +113,7 @@ contract SubscriptionNFT is ERC721, ERC721Enumerable, Ownable {
         return false;
     }
 
-    function mint(address user, string memory productId, uint256 startTimestamp, uint256 endTimestamp, bool allowAutoExtend) onlyHub external returns (uint256) {
+    function mint(address user, string memory productId, uint256 startTimestamp, uint256 endTimestamp, bool allowAutoExtend, string memory uri) onlyHub external returns (uint256) {
         require(user != address(0), Errors.ZERO_ADDRESS);
         uint256 tokenId = _nextTokenId++;
         _mint(user, tokenId);
@@ -109,6 +125,7 @@ contract SubscriptionNFT is ERC721, ERC721Enumerable, Ownable {
         });
         _tokenInfo[tokenId] = tokenInfo;
         _userProductTokens[user][productId].add(tokenId);
+        _setTokenURI(tokenId, uri);
         emit SetTokenInfo({
             tokenId: tokenId,
             productId: productId,
