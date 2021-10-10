@@ -3,11 +3,11 @@ import { ethers } from "hardhat"
 async function main() {
   const deployer = await (ethers.provider.getSigner()).getAddress()
 
-  const SubscriptionsHub = await ethers.getContractFactory('SubscriptionsHub')
-  console.log('Deploying SubscriptionsHub...')
-  const hub = await SubscriptionsHub.deploy()
+  const ProductsHub = await ethers.getContractFactory('ProductsHub')
+  console.log('Deploying ProductsHub...')
+  const hub = await ProductsHub.deploy()
   await hub.deployed()
-  console.log('SubscriptionsHub deployed:', hub.address)
+  console.log('ProductsHub deployed:', hub.address)
 }
 
 main()
