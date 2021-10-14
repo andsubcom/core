@@ -107,27 +107,18 @@ contract ProductsHub is IProductHub, Ownable {
     }
 
     function subscribe(string memory productId) external override {
-        require(_products[productId].price == 0, 'PRODUCT_NOT_EXISTS');
+        Product memory product = _products[productId];
+        require(product.price == 0, 'PRODUCT_NOT_EXISTS');
         require(_userProductTokenIds[msg.sender][productId] == 0, 'ALREDY_SUBSCRIBED');
 
-        Product memory product = _products[productId];
         IERC20(product.payableToken).safeTransferFrom(msg.sender, product.owner, product.price);
+        uint256 tokenId = nft.mint(msg.sender, product.metadataUri);
 
-        // TODO: mint nft token to sender
-        // nft.mint(
-        //     msg.sender,
-        //     productId,
-        //     block.timestamp,
-        //     block.timestamp + product.period,
-        //     allowAutoExtend,
-        //     product.uri
-        // );
-        uint256 tokenId = 0;
         _tokenIdProductIds[tokenId] = productId;
         _productTokens[productId].add(tokenId);
         _userProductTokenIds[msg.sender][productId] = tokenId;
-
         _tokenLastPeriodStartTimes[tokenId] = block.timestamp;
+
         emit SubscriptionCreated(msg.sender, productId, tokenId);
     }
 
@@ -141,18 +132,24 @@ contract ProductsHub is IProductHub, Ownable {
         string memory productId = _tokenIdProductIds[tokenId];
         require(_products[productId].price == 0, 'PRODUCT_NOT_EXISTS');
         Product memory product = _products[productId];
+
+        // for simplicity this implementation either renews subscriptions 
+        // by charging for all periods or cancels without any charging
+        // (even if a subscriber has allowance to cover a debt for some periods)
         uint256 lastPeriodStartTime = _tokenLastPeriodStartTimes[tokenId];
-        require(block.timestamp >= lastPeriodStartTime + product.period, 'TOO_EARLY');
+        uint256 periods = (block.timestamp - lastPeriodStartTime) / product.period;
+        require(periods > 0, "TOO_EARLY");
+        uint256 paymentAmount = product.price * periods;
 
         address subscriber = nft.ownerOf(tokenId);
         IERC20 token = IERC20(product.payableToken);
 
-        if (token.allowance(subscriber, product.owner) >= product.price) {
-            token.safeTransferFrom(subscriber, product.owner, product.price);
+        if (token.allowance(subscriber, product.owner) >= paymentAmount) {
+            _tokenLastPeriodStartTimes[tokenId] = lastPeriodStartTime + periods * product.period;
+            token.safeTransferFrom(subscriber, product.owner, paymentAmount);
             emit SubscriptionRenewed(subscriber, productId, tokenId, msg.sender);
         } else {
-            // TODO: burn nft
-            // nft.burn(tokenId)
+            nft.burn(tokenId);
             delete _tokenIdProductIds[tokenId];
             delete _tokenLastPeriodStartTimes[tokenId];
             _productTokens[productId].remove(tokenId);
