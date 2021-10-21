@@ -11,11 +11,24 @@ import {IProductHub} from './interfaces/IProductHub.sol';
 
 import './Errors.sol';
 
-contract SubscriptionNFT is ERC721, ERC721Enumerable, Ownable, ERC721URIStorage {
+interface ISubscriptionNFT {
+    /// @notice Returns token id if user subscribed to a product or 0 otherwise.
+    function findTokenId(string memory productId, address user) external returns (uint256);
+
+    /// @notice Returns product id a token associated with.
+    function findTokenProduct(uint256 tokenId) external returns (string memory);
+}
+
+contract SubscriptionNFT is ISubscriptionNFT, ERC721, ERC721Enumerable, Ownable, ERC721URIStorage {
     using EnumerableSet for EnumerableSet.UintSet;
 
     uint256 internal _nextTokenId;
     address public hub;
+
+    mapping(uint256 => string) /// tokenId -> productId // TODO: fix high gas-consumption because of string id
+        internal _tokenToProduct;
+    mapping(address => mapping(string => uint256)) // user -> (productId -> tokenId)
+        internal _userProductTokenIds;
 
     modifier onlyHub() {
         require(msg.sender == hub, Errors.NOT_HUB);
@@ -26,16 +39,34 @@ contract SubscriptionNFT is ERC721, ERC721Enumerable, Ownable, ERC721URIStorage 
         return super.tokenURI(tokenId);
     }
 
+    function findTokenId(string memory productId, address user) public view override returns (uint256) {
+        return _userProductTokenIds[user][productId];
+    }
+
+    function findTokenProduct(uint256 tokenId) public view override returns (string memory) {
+        return _tokenToProduct[tokenId];
+    }
+
     constructor(address _hub) ERC721('SubscriptionNFT', 'SubNFT') {
         require(_hub != address(0), Errors.ZERO_ADDRESS);
         hub = _hub;
     }
 
-    function mint(address user, string memory uri) external onlyHub returns (uint256) {
+    function mint(
+        address user,
+        string memory productId,
+        string memory uri
+    ) external onlyHub returns (uint256) {
         require(user != address(0), Errors.ZERO_ADDRESS);
+        require(_userProductTokenIds[user][productId] == 0, 'ALREDY_SUBSCRIBED');
+
         uint256 tokenId = _nextTokenId++;
         _mint(user, tokenId);
         _setTokenURI(tokenId, uri);
+
+        _tokenToProduct[tokenId] = productId;
+        _userProductTokenIds[user][productId] = tokenId;
+
         return tokenId;
     }
 
@@ -45,6 +76,12 @@ contract SubscriptionNFT is ERC721, ERC721Enumerable, Ownable, ERC721URIStorage 
 
     function burn(uint256 tokenId) external onlyHub {
         _burn(tokenId);
+        delete _tokenToProduct[tokenId];
+
+        // TODO: pass susbcriber and productId from ProductHub to save gas
+        address subscriber = ownerOf(tokenId);
+        string memory productId = findTokenProduct(tokenId);
+        delete _userProductTokenIds[subscriber][productId];
     }
 
     function _beforeTokenTransfer(
@@ -56,8 +93,15 @@ contract SubscriptionNFT is ERC721, ERC721Enumerable, Ownable, ERC721URIStorage 
 
         // for prototype simplicity a user can't hold two subscriptions of the same product
         if (to != address(0)) {
-            string memory productId = IProductHub(hub).findTokenProductId(tokenId);
-            require(IProductHub(hub).findTokenId(to, productId) == 0, 'CANT_OWN_TWO_SUBSCRIPTIONS');
+            string memory productId = findTokenProduct(tokenId);
+            require(findTokenId(productId, to) == 0, 'CANT_OWN_TWO_SUBSCRIPTIONS');
+        }
+
+        // update owner info on transfer
+        if (from != address(0) && to != address(0)) {
+            string memory productId = findTokenProduct(tokenId);
+            delete _userProductTokenIds[from][productId];
+            _userProductTokenIds[from][productId] = tokenId;
         }
     }
 

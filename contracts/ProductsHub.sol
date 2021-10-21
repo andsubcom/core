@@ -12,6 +12,7 @@ import {SubscriptionNFT} from './SubscriptionNFT.sol';
 import {IProductHub} from './interfaces/IProductHub.sol';
 import './Errors.sol';
 
+// TODO: rename to ProcutHub
 contract ProductsHub is IProductHub, Ownable {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.UintSet;
@@ -24,12 +25,8 @@ contract ProductsHub is IProductHub, Ownable {
         internal _ownerProductIds;
     mapping(uint256 => uint256) /*tokenId*/ /*timestamp*/
         internal _tokenLastPeriodStartTimes;
-    mapping(uint256 => string) /*tokenId*/ /*productId*/ // TODO: fix high gas-consumption
-        internal _tokenIdProductIds;
     mapping(string => EnumerableSet.UintSet) /*productId*/ /*set of tokenIds*/
         internal _productTokens;
-    mapping(address => mapping(string => uint256)) // subscriber -> (productId -> tokenId)
-        internal _userProductTokenIds;
 
     // EnumerableSet.UintSet internal _cancelledSubscriptions;
 
@@ -41,12 +38,12 @@ contract ProductsHub is IProductHub, Ownable {
         return _ownerProductIds[owner];
     }
 
-    function findTokenProductId(uint256 tokenId) public view override returns (string memory) {
-        return _tokenIdProductIds[tokenId];
+    function findTokenProduct(uint256 tokenId) public view override returns (string memory) {
+        return nft.findTokenProduct(tokenId);
     }
 
-    function findTokenId(address user, string memory productId) public view override returns (uint256) {
-        return _userProductTokenIds[user][productId];
+    function findTokenId(string memory productId, address user) public view override returns (uint256) {
+        return nft.findTokenId(productId, user);
     }
 
     function getProductInfo(string memory productId)
@@ -109,14 +106,11 @@ contract ProductsHub is IProductHub, Ownable {
     function subscribe(string memory productId) external override {
         Product memory product = _products[productId];
         require(product.price == 0, 'PRODUCT_NOT_EXISTS');
-        require(_userProductTokenIds[msg.sender][productId] == 0, 'ALREDY_SUBSCRIBED');
 
+        uint256 tokenId = nft.mint(msg.sender, productId, product.metadataUri);
         IERC20(product.payableToken).safeTransferFrom(msg.sender, product.owner, product.price);
-        uint256 tokenId = nft.mint(msg.sender, product.metadataUri);
 
-        _tokenIdProductIds[tokenId] = productId;
         _productTokens[productId].add(tokenId);
-        _userProductTokenIds[msg.sender][productId] = tokenId;
         _tokenLastPeriodStartTimes[tokenId] = block.timestamp;
 
         emit SubscriptionCreated(msg.sender, productId, tokenId);
@@ -129,7 +123,7 @@ contract ProductsHub is IProductHub, Ownable {
     // }
 
     function renewSubscription(uint256 tokenId) public override {
-        string memory productId = _tokenIdProductIds[tokenId];
+        string memory productId = nft.findTokenProduct(tokenId);
         require(_products[productId].price == 0, 'PRODUCT_NOT_EXISTS');
         Product memory product = _products[productId];
 
@@ -150,17 +144,15 @@ contract ProductsHub is IProductHub, Ownable {
             emit SubscriptionRenewed(subscriber, productId, tokenId, msg.sender);
         } else {
             nft.burn(tokenId);
-            delete _tokenIdProductIds[tokenId];
             delete _tokenLastPeriodStartTimes[tokenId];
             _productTokens[productId].remove(tokenId);
-            delete _userProductTokenIds[subscriber][productId];
             emit SubscriptionCancelled(subscriber, productId, tokenId, msg.sender);
         }
     }
 
-    function renewSubscription(string memory productId, address subscriber) external override {
+    function renewSubscription(string memory productId, address user) external override {
         require(_products[productId].price == 0, 'PRODUCT_NOT_EXISTS');
-        uint256 tokenId = _userProductTokenIds[subscriber][productId];
+        uint256 tokenId = nft.findTokenId(productId, user);
         require(tokenId != 0, 'NOT_SUBSCRIBED');
         renewSubscription(tokenId);
     }

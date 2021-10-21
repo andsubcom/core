@@ -43,9 +43,9 @@ interface IProductHub {
 
     function getOwnerProductIds(address owner) external view returns (string[] memory);
 
-    function findTokenProductId(uint256 tokenId) external view returns (string memory);
+    function findTokenProduct(uint256 tokenId) external view returns (string memory);
 
-    function findTokenId(address user, string memory productId) external view returns(uint256);
+    function findTokenId(string memory productId, address user) external view returns(uint256);
 
     function getProductInfo(string memory productId)
         external
@@ -92,7 +92,7 @@ interface IProductHub {
     /**
      * @notice Renews a subscription by product id.
      */
-    function renewSubscription(string memory productId, address subscriber) external;
+    function renewSubscription(string memory productId, address user) external;
 
     /**
      * @notice Renews multuple subscriptions.
