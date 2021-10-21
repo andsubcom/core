@@ -73,8 +73,8 @@ describe('Product Hub', function () {
       await token2.transfer(signers[i].address, initBalance)
     }
 
-    ProductsHubFactory = await ethers.getContractFactory('ProductsHub')
-    hub = await ProductsHubFactory.deploy()
+    ProductHubFactory = await ethers.getContractFactory('ProductHub')
+    hub = await ProductHubFactory.deploy()
     await hub.deployed()
 
     const nftAddress = await hub.nft()

@@ -13,7 +13,7 @@ import {IProductHub} from './interfaces/IProductHub.sol';
 import './Errors.sol';
 
 // TODO: rename to ProcutHub
-contract ProductsHub is IProductHub, Ownable {
+contract ProductHub is IProductHub, Ownable {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.UintSet;
 
