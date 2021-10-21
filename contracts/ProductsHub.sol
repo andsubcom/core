@@ -42,6 +42,7 @@ contract ProductsHub is IProductHub, Ownable {
         return nft.findTokenProduct(tokenId);
     }
 
+    /// @notice Returns NFT token id a user owns, 0 means no token.
     function findTokenId(string memory productId, address user) public view override returns (uint256) {
         return nft.findTokenId(productId, user);
     }
@@ -61,7 +62,7 @@ contract ProductsHub is IProductHub, Ownable {
         )
     {
         Product memory product = _products[productId];
-        id = productId;
+        id = product.price == 0 ? '' : productId;
         name = product.name;
         price = product.price;
         payableToken = product.payableToken;
@@ -96,16 +97,16 @@ contract ProductsHub is IProductHub, Ownable {
             owner: msg.sender,
             productId: productId,
             payableToken: payableToken,
+            name: name,
             price: price,
             period: period,
-            name: name,
             metadataUri: metadataUri
         });
     }
 
     function subscribe(string memory productId) external override {
-        Product memory product = _products[productId];
-        require(product.price == 0, 'PRODUCT_NOT_EXISTS');
+        Product storage product = _products[productId];
+        require(product.price != 0, 'PRODUCT_NOT_EXISTS');
 
         uint256 tokenId = nft.mint(msg.sender, productId, product.metadataUri);
         IERC20(product.payableToken).safeTransferFrom(msg.sender, product.owner, product.price);
@@ -124,21 +125,23 @@ contract ProductsHub is IProductHub, Ownable {
 
     function renewSubscription(uint256 tokenId) public override {
         string memory productId = nft.findTokenProduct(tokenId);
-        require(_products[productId].price == 0, 'PRODUCT_NOT_EXISTS');
-        Product memory product = _products[productId];
+        require(_products[productId].price != 0, 'PRODUCT_NOT_EXISTS');
 
-        // for simplicity this implementation either renews subscriptions 
+        Product memory product = _products[productId];
+        address subscriber = nft.ownerOf(tokenId);
+
+        // for simplicity this implementation either renews subscriptions
         // by charging for all periods or cancels without any charging
         // (even if a subscriber has allowance to cover a debt for some periods)
         uint256 lastPeriodStartTime = _tokenLastPeriodStartTimes[tokenId];
         uint256 periods = (block.timestamp - lastPeriodStartTime) / product.period;
-        require(periods > 0, "TOO_EARLY");
+        require(periods > 0, 'TOO_EARLY');
         uint256 paymentAmount = product.price * periods;
 
-        address subscriber = nft.ownerOf(tokenId);
         IERC20 token = IERC20(product.payableToken);
-
-        if (token.allowance(subscriber, product.owner) >= paymentAmount) {
+        uint256 balance = token.balanceOf(subscriber);
+        uint256 allowance = token.allowance(subscriber, address(this));
+        if (balance >= paymentAmount && allowance >= paymentAmount) {
             _tokenLastPeriodStartTimes[tokenId] = lastPeriodStartTime + periods * product.period;
             token.safeTransferFrom(subscriber, product.owner, paymentAmount);
             emit SubscriptionRenewed(subscriber, productId, tokenId, msg.sender);
@@ -150,8 +153,8 @@ contract ProductsHub is IProductHub, Ownable {
         }
     }
 
-    function renewSubscription(string memory productId, address user) external override {
-        require(_products[productId].price == 0, 'PRODUCT_NOT_EXISTS');
+    function renewProductSubscription(string memory productId, address user) external override {
+        require(_products[productId].price != 0, 'PRODUCT_NOT_EXISTS');
         uint256 tokenId = nft.findTokenId(productId, user);
         require(tokenId != 0, 'NOT_SUBSCRIBED');
         renewSubscription(tokenId);
@@ -164,7 +167,7 @@ contract ProductsHub is IProductHub, Ownable {
     }
 
     function renewProductSubscriptions(string memory productId) external override {
-        require(_products[productId].price == 0, 'PRODUCT_NOT_EXISTS');
+        require(_products[productId].price != 0, 'PRODUCT_NOT_EXISTS');
         EnumerableSet.UintSet storage tokens = _productTokens[productId];
         for (uint256 i = 0; i < tokens.length(); i++) {
             renewSubscription(tokens.at(i));

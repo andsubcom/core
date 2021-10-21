@@ -6,9 +6,9 @@ interface IProductHub {
         address indexed owner,
         string indexed productId,
         address indexed payableToken,
+        string name,
         uint256 price,
         uint256 period,
-        string name,
         string metadataUri
     );
 
@@ -92,7 +92,7 @@ interface IProductHub {
     /**
      * @notice Renews a subscription by product id.
      */
-    function renewSubscription(string memory productId, address user) external;
+    function renewProductSubscription(string memory productId, address user) external;
 
     /**
      * @notice Renews multuple subscriptions.

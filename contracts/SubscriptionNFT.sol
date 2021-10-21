@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.6;
 
+import "hardhat/console.sol";
+
 import '@openzeppelin/contracts/token/ERC721/ERC721.sol';
 import '@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol';
 import '@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol';
@@ -39,6 +41,7 @@ contract SubscriptionNFT is ISubscriptionNFT, ERC721, ERC721Enumerable, Ownable,
         return super.tokenURI(tokenId);
     }
 
+    /// @notice Returns NFT token id a user owns, 0 means no token.
     function findTokenId(string memory productId, address user) public view override returns (uint256) {
         return _userProductTokenIds[user][productId];
     }
@@ -50,6 +53,7 @@ contract SubscriptionNFT is ISubscriptionNFT, ERC721, ERC721Enumerable, Ownable,
     constructor(address _hub) ERC721('SubscriptionNFT', 'SubNFT') {
         require(_hub != address(0), Errors.ZERO_ADDRESS);
         hub = _hub;
+        _nextTokenId = 1;
     }
 
     function mint(
@@ -75,13 +79,12 @@ contract SubscriptionNFT is ISubscriptionNFT, ERC721, ERC721Enumerable, Ownable,
     }
 
     function burn(uint256 tokenId) external onlyHub {
-        _burn(tokenId);
-        delete _tokenToProduct[tokenId];
-
-        // TODO: pass susbcriber and productId from ProductHub to save gas
         address subscriber = ownerOf(tokenId);
         string memory productId = findTokenProduct(tokenId);
         delete _userProductTokenIds[subscriber][productId];
+        delete _tokenToProduct[tokenId];
+
+        _burn(tokenId);
     }
 
     function _beforeTokenTransfer(
@@ -101,7 +104,7 @@ contract SubscriptionNFT is ISubscriptionNFT, ERC721, ERC721Enumerable, Ownable,
         if (from != address(0) && to != address(0)) {
             string memory productId = findTokenProduct(tokenId);
             delete _userProductTokenIds[from][productId];
-            _userProductTokenIds[from][productId] = tokenId;
+            _userProductTokenIds[to][productId] = tokenId;
         }
     }
 
