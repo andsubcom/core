@@ -1,6 +1,6 @@
 import { ethers } from "hardhat"
 
-const HUB_ADDRESS = '0xA20B982b7a534b4a1e8c71A45ADbfe8faeed2cff'
+const HUB_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3'
 const TOKEN_ADDRESS = '0x6ef6f7ca5fb523c0cf8f793cd9c3eef228e86679'
 
 const PERIOD_MONTH = 2629743
@@ -11,8 +11,11 @@ async function main() {
   // const anotherUser = await (await ethers.getSigners())[1]
   const options = { gasLimit: 500000 }
 
-  const token = await ethers.getContractAt('XCoin', TOKEN_ADDRESS)
-  const hub = await ethers.getContractAt('SubscriptionsHub', HUB_ADDRESS)
+  // const token = await ethers.getContractAt('XCoin', TOKEN_ADDRESS)
+  const hub = await ethers.getContractAt('ProductHub', HUB_ADDRESS)
+
+  const product = await hub.getProductSubscribers('test_hardhat')
+  console.log('product', product)
 
   // create org
   // await (await hub.createOrganization('Awake', options)).wait()

@@ -46,6 +46,8 @@ interface IProductHub {
     function findTokenProduct(uint256 tokenId) external view returns (string memory);
 
     function findTokenId(string memory productId, address user) external view returns(uint256);
+    
+    function getProductSubscribers(string memory productId) external view returns (address[] memory, uint[] memory, uint[] memory, uint[] memory);
 
     function getProductInfo(string memory productId)
         external

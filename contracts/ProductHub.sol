@@ -12,6 +12,8 @@ import {SubscriptionNFT} from './SubscriptionNFT.sol';
 import {IProductHub} from './interfaces/IProductHub.sol';
 import './Errors.sol';
 
+import "hardhat/console.sol";
+
 // TODO: rename to ProcutHub
 contract ProductHub is IProductHub, Ownable {
     using SafeERC20 for IERC20;
@@ -40,6 +42,35 @@ contract ProductHub is IProductHub, Ownable {
 
     function findTokenProduct(uint256 tokenId) public view override returns (string memory) {
         return nft.findTokenProduct(tokenId);
+    }
+
+    function getProductSubscribers(string memory productId) 
+        public 
+        view 
+        override 
+        returns (
+            address[] memory, 
+            uint[] memory, 
+            uint[] memory, 
+            uint[] memory
+        ) 
+    {
+        EnumerableSet.UintSet storage tokens = _productTokens[productId];
+        Product memory product = _products[productId];
+        address[] memory addrs = new address[](tokens.length());
+        uint[]    memory lastPeriodStartTime = new uint[](tokens.length());
+        uint[]    memory periods = new uint[](tokens.length());
+        uint[]    memory paymentAmounts = new uint[](tokens.length());
+
+        for (uint i = 0; i < tokens.length(); i++) {
+            uint token = tokens.at(i);
+            addrs[i] = nft.ownerOf(token);
+            lastPeriodStartTime[i] = _tokenLastPeriodStartTimes[token];
+            periods[i] = (block.timestamp - lastPeriodStartTime[i]) / product.period;
+            paymentAmounts[i] = product.price * periods[i];
+        }
+
+        return (addrs, lastPeriodStartTime, periods, paymentAmounts);
     }
 
     /// @notice Returns NFT token id a user owns, 0 means no token.

@@ -239,6 +239,21 @@ describe('Product Hub', function () {
     expect(await token1.balanceOf(productOwner.address)).to.equal(initBalance.add(price.mul(2)))
   })
 
+  it('Get product subscribers', async function () {
+    // create product
+    await hub.connect(productOwner).createProduct(productId, productName, token1.address, price, period, metadataUri)
+
+    // subscribe
+    const tokenId = 1
+    await token1.connect(user).approve(hub.address, initBalance)
+    await hub.connect(user).subscribe(productId)
+    let lastPaymentTime = await getLastBlockTimestamp()
+
+    const subscribers = await hub.getProductSubscribers(productId)
+    console.log('subscribers', subscribers)
+    // TODO: add tests
+  })
+
   xit('Multple renewals', async function () {
     // TODO: implement
   })
